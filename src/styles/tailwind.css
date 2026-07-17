@@ -1,0 +1,72 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-size: 16px;
+  --background: #F7F4EF;
+  --foreground: #06111F;
+  --card: #FFFDF8;
+  --card-foreground: #06111F;
+  --primary: #06111F;
+  --primary-foreground: #F7F4EF;
+  --secondary: #EDE9E1;
+  --secondary-foreground: #06111F;
+  --muted: #EDE9E1;
+  --muted-foreground: #9AA0A6;
+  --accent: #C8A96E;
+  --accent-foreground: #06111F;
+  --destructive: #B91C1C;
+  --destructive-foreground: #F7F4EF;
+  --border: #E6DED2;
+  --input: #F7F4EF;
+  --ring: rgba(200, 169, 110, 0.35);
+  --radius: 0.9rem;
+}
+
+html, body, #root {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  overscroll-behavior-y: contain;
+  -webkit-tap-highlight-color: transparent;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+    outline-color: var(--ring);
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+  }
+
+  button {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  input, select, textarea {
+    font-size: 16px; /* impede o iOS Safari de dar zoom automático ao focar um campo */
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: "Cormorant Garamond", Georgia, serif;
+  }
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}

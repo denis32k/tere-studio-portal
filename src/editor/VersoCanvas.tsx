@@ -1,0 +1,105 @@
+import React, { useEffect, useRef, useState } from 'react';
+import { Maximize2, RotateCcw, Trash2 } from 'lucide-react';
+import { clamp, type Produto, type ProductMockup, type VersoElemento, type VersoModoGravacao } from './types';
+import { imagemMockupLado, corVersoModo } from './normalize';
+import { QRCodePreview, ProdutoFallback } from './ui';
+
+function fonteFamilia(nome?: string) {
+  const idx = Math.min(4, Math.max(1, Number(String(nome || '').match(/\d+/)?.[0] || 1)));
+  return `TereLetra${idx}, Cormorant Garamond, Georgia, serif`;
+}
+export function elementoBox(el: VersoElemento) {
+  if (el.tipo === 'qrcode') return { w: 58, h: 58 };
+  if (el.tipo === 'simbolo') return { w: 46, h: 46 };
+  const lines = String(el.conteudo || 'Texto').split(/\n/);
+  const maxLen = Math.max(4, ...lines.map(l => l.length));
+  return { w: clamp(maxLen * 8 + 18, 54, 210), h: clamp(lines.length * 20 * (el.lineHeight || 1.1) + 8, 30, 150) };
+}
+
+export function VersoCanvas({ produto, mockup, elementos, selectedId, onSelect, onChange, modoGravacao = 'preta', size = 310 }: {
+  produto?: Produto; mockup?: ProductMockup; elementos: VersoElemento[]; selectedId: string | null;
+  onSelect: (id: string | null) => void; onChange: (els: VersoElemento[]) => void; modoGravacao?: VersoModoGravacao; size?: number;
+}) {
+  const h = Math.round(size * 1.15);
+  const drag = useRef<{ id: string; startX: number; startY: number; baseX: number; baseY: number } | null>(null);
+  const action = useRef<{ id: string; startX: number; startY: number; escala: number; rotacao: number; mode: 'scale' | 'rotate' } | null>(null);
+  const rafElementos = useRef<number | null>(null);
+  const pendingElementos = useRef<VersoElemento[] | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const emitElementos = (next: VersoElemento[]) => {
+    pendingElementos.current = next;
+    if (rafElementos.current != null) return;
+    rafElementos.current = window.requestAnimationFrame(() => {
+      rafElementos.current = null;
+      const current = pendingElementos.current;
+      pendingElementos.current = null;
+      if (current) onChange(current);
+    });
+  };
+  const flushElementos = () => {
+    if (rafElementos.current != null) { window.cancelAnimationFrame(rafElementos.current); rafElementos.current = null; }
+    const current = pendingElementos.current;
+    pendingElementos.current = null;
+    if (current) onChange(current);
+  };
+  const updateEl = (id: string, patch: Partial<VersoElemento>) => onChange(elementos.map(e => e.id === id ? { ...e, ...patch } : e));
+  const updateElPreview = (id: string, patch: Partial<VersoElemento>) => emitElementos(elementos.map(e => e.id === id ? { ...e, ...patch } : e));
+  const removeEl = (id: string) => { onChange(elementos.filter(e => e.id !== id)); onSelect(null); };
+
+  useEffect(() => {
+    const move = (ev: PointerEvent) => {
+      if (drag.current) { const el = elementos.find(e => e.id === drag.current?.id); const d = drag.current; if (!el || !d) return; updateElPreview(el.id, { x: d.baseX + (ev.clientX - d.startX), y: d.baseY + (ev.clientY - d.startY) }); return; }
+      const a = action.current; if (!a) return; const el = elementos.find(e => e.id === a.id); if (!el) return;
+      if (a.mode === 'scale') updateElPreview(a.id, { escala: clamp(a.escala + (ev.clientX - a.startX + ev.clientY - a.startY) / 180, 0.2, 6) });
+      else updateElPreview(a.id, { rotacao: Math.round(a.rotacao + (ev.clientX - a.startX) * 0.7) });
+    };
+    const up = () => { flushElementos(); drag.current = null; action.current = null; };
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+    return () => { flushElementos(); window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [elementos, onChange]);
+
+  const imgVersoReal = imagemMockupLado(mockup, 'verso', false);
+  const imgVerso = imgVersoReal || imagemMockupLado(mockup, 'frente');
+  const engravingColor = corVersoModo(modoGravacao);
+
+  const renderConteudo = (el: VersoElemento) => {
+    if (editingId === el.id && el.tipo === 'texto') {
+      return <textarea autoFocus value={el.conteudo} onChange={e => updateEl(el.id, { conteudo: e.target.value })} onBlur={() => setEditingId(null)} className="bg-white/95 border border-[#C8A96E] rounded px-2 py-1 text-sm outline-none resize-none" style={{ width: elementoBox(el).w + 24, minHeight: 42, fontFamily: fonteFamilia(el.fonte), lineHeight: el.lineHeight || 1.1, letterSpacing: `${el.letterSpacing || 0}px`, textAlign: el.align || 'center' }} />;
+    }
+    if (el.tipo === 'qrcode') return <QRCodePreview seed={el.meta?.qrUrl || el.conteudo} color={engravingColor} pixelSize={58} />;
+    if (el.tipo === 'simbolo') return <span className="leading-none" style={{ fontSize: 40, color: engravingColor, fontFamily: 'Georgia, serif' }}>{el.conteudo || '♥'}</span>;
+    return <span className="whitespace-pre-wrap text-center inline-block" style={{ width: elementoBox(el).w, color: engravingColor, fontFamily: fonteFamilia(el.fonte), lineHeight: el.lineHeight || 1.1, letterSpacing: `${el.letterSpacing || 0}px`, textAlign: el.align || 'center', overflowWrap: 'anywhere' }}>{el.conteudo || 'Texto'}</span>;
+  };
+
+  return (
+    <div className="h-full min-h-0 flex items-center justify-center" onClick={() => onSelect(null)} style={{ touchAction: 'none' }}>
+      <div className="relative select-none" style={{ width: size, height: h }}>
+        {imgVerso ? <img src={imgVerso} className="absolute inset-0 w-full h-full object-contain pointer-events-none select-none opacity-95" draggable={false} /> : <div className="absolute inset-0 flex items-center justify-center"><ProdutoFallback tipo={produto?.tipo} cor={produto?.cor} size={size} /></div>}
+        <div className="absolute inset-0 overflow-visible">
+          {elementos.map((el, idx) => {
+            const selected = selectedId === el.id;
+            const box = elementoBox(el);
+            return (
+              <div key={el.id} className="absolute left-1/2 top-1/2" style={{ zIndex: idx + 1, transform: `translate(-50%, -50%) translate(${el.x}px, ${el.y}px) rotate(${el.rotacao}deg) scale(${el.escala})`, transformOrigin: 'center' }} onClick={e => { e.stopPropagation(); onSelect(el.id); }} onDoubleClick={e => { e.stopPropagation(); onSelect(el.id); if (el.tipo === 'texto') setEditingId(el.id); }} onPointerDown={e => { e.stopPropagation(); if ((e.target as HTMLElement).tagName.toLowerCase() === 'textarea') return; onSelect(el.id); drag.current = { id: el.id, startX: e.clientX, startY: e.clientY, baseX: el.x, baseY: el.y }; }} onWheel={e => { e.preventDefault(); e.stopPropagation(); updateEl(el.id, { escala: clamp(el.escala * (e.deltaY < 0 ? 1.08 : 0.92), 0.2, 6) }); }}>
+                <div className="relative inline-flex items-center justify-center overflow-visible" style={{ width: box.w, height: box.h }}>
+                  {renderConteudo(el)}
+                  {selected && (
+                    <>
+                      <div className="absolute -inset-1 border border-[#C8A96E] rounded pointer-events-none shadow-[0_0_0_1px_rgba(255,255,255,.8)]" />
+                      <button type="button" title="Girar" onPointerDown={e => { e.preventDefault(); e.stopPropagation(); action.current = { id: el.id, startX: e.clientX, startY: e.clientY, escala: el.escala, rotacao: el.rotacao, mode: 'rotate' }; }} className="absolute left-1/2 -top-9 -translate-x-1/2 w-8 h-8 rounded-full border border-[#C8A96E] bg-card text-[#8A6F35] flex items-center justify-center shadow-sm"><RotateCcw size={13} /></button>
+                      <button type="button" title="Tamanho" onPointerDown={e => { e.preventDefault(); e.stopPropagation(); action.current = { id: el.id, startX: e.clientX, startY: e.clientY, escala: el.escala, rotacao: el.rotacao, mode: 'scale' }; }} className="absolute -right-4 -bottom-4 w-8 h-8 rounded-full border border-[#C8A96E] bg-card text-[#8A6F35] flex items-center justify-center shadow-sm"><Maximize2 size={13} /></button>
+                      <button type="button" title="Remover" onClick={e => { e.stopPropagation(); removeEl(el.id); }} className="absolute -right-4 -top-4 w-8 h-8 rounded-full border border-red-200 bg-card text-red-600 flex items-center justify-center shadow-sm"><Trash2 size={13} /></button>
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+export { fonteFamilia };

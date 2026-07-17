@@ -1,0 +1,15 @@
+{
+  "name": "Terê Studio Prévia",
+  "short_name": "Terê Prévia",
+  "description": "Gere a prévia do seu produto personalizado e envie pelo WhatsApp, de qualquer lugar.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F7F4EF",
+  "theme_color": "#06111F",
+  "icons": [
+    { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}
