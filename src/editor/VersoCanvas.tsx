@@ -27,6 +27,9 @@ export function VersoCanvas({ produto, mockup, elementos, selectedId, onSelect, 
   const rafElementos = useRef<number | null>(null);
   const pendingElementos = useRef<VersoElemento[] | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  // Pinça com 2 dedos pra dar zoom no elemento selecionado (mesmo gesto do FrenteCanvas).
+  const activePointers = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const pinchStart = useRef<{ id: string; distance: number; startEscala: number } | null>(null);
 
   const emitElementos = (next: VersoElemento[]) => {
     pendingElementos.current = next;
@@ -50,14 +53,26 @@ export function VersoCanvas({ produto, mockup, elementos, selectedId, onSelect, 
 
   useEffect(() => {
     const move = (ev: PointerEvent) => {
+      if (activePointers.current.has(ev.pointerId)) activePointers.current.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+      if (pinchStart.current && activePointers.current.size === 2) {
+        const [p1, p2] = Array.from(activePointers.current.values());
+        const distance = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+        const ratio = distance / Math.max(1, pinchStart.current.distance);
+        updateElPreview(pinchStart.current.id, { escala: clamp(pinchStart.current.startEscala * ratio, 0.2, 6) });
+        return;
+      }
       if (drag.current) { const el = elementos.find(e => e.id === drag.current?.id); const d = drag.current; if (!el || !d) return; updateElPreview(el.id, { x: d.baseX + (ev.clientX - d.startX), y: d.baseY + (ev.clientY - d.startY) }); return; }
       const a = action.current; if (!a) return; const el = elementos.find(e => e.id === a.id); if (!el) return;
       if (a.mode === 'scale') updateElPreview(a.id, { escala: clamp(a.escala + (ev.clientX - a.startX + ev.clientY - a.startY) / 180, 0.2, 6) });
       else updateElPreview(a.id, { rotacao: Math.round(a.rotacao + (ev.clientX - a.startX) * 0.7) });
     };
-    const up = () => { flushElementos(); drag.current = null; action.current = null; };
-    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
-    return () => { flushElementos(); window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+    const up = (ev: PointerEvent) => {
+      activePointers.current.delete(ev.pointerId);
+      if (activePointers.current.size < 2) pinchStart.current = null;
+      flushElementos(); drag.current = null; action.current = null;
+    };
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
+    return () => { flushElementos(); window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [elementos, onChange]);
 
@@ -84,15 +99,27 @@ export function VersoCanvas({ produto, mockup, elementos, selectedId, onSelect, 
             const selected = selectedId === el.id;
             const box = elementoBox(el);
             return (
-              <div key={el.id} className="absolute left-1/2 top-1/2" style={{ zIndex: idx + 1, transform: `translate(-50%, -50%) translate(${el.x}px, ${el.y}px) rotate(${el.rotacao}deg) scale(${el.escala})`, transformOrigin: 'center' }} onClick={e => { e.stopPropagation(); onSelect(el.id); }} onDoubleClick={e => { e.stopPropagation(); onSelect(el.id); if (el.tipo === 'texto') setEditingId(el.id); }} onPointerDown={e => { e.stopPropagation(); if ((e.target as HTMLElement).tagName.toLowerCase() === 'textarea') return; onSelect(el.id); drag.current = { id: el.id, startX: e.clientX, startY: e.clientY, baseX: el.x, baseY: el.y }; }} onWheel={e => { e.preventDefault(); e.stopPropagation(); updateEl(el.id, { escala: clamp(el.escala * (e.deltaY < 0 ? 1.08 : 0.92), 0.2, 6) }); }}>
+              <div key={el.id} className="absolute left-1/2 top-1/2" style={{ zIndex: idx + 1, transform: `translate(-50%, -50%) translate(${el.x}px, ${el.y}px) rotate(${el.rotacao}deg) scale(${el.escala})`, transformOrigin: 'center' }} onClick={e => { e.stopPropagation(); onSelect(el.id); }} onDoubleClick={e => { e.stopPropagation(); onSelect(el.id); if (el.tipo === 'texto') setEditingId(el.id); }} onPointerDown={e => {
+                  e.stopPropagation();
+                  if ((e.target as HTMLElement).tagName.toLowerCase() === 'textarea') return;
+                  onSelect(el.id);
+                  activePointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+                  if (activePointers.current.size >= 2 && (drag.current?.id === el.id || !drag.current)) {
+                    const [p1, p2] = Array.from(activePointers.current.values()).slice(0, 2);
+                    pinchStart.current = { id: el.id, distance: Math.max(1, Math.hypot(p2.x - p1.x, p2.y - p1.y)), startEscala: el.escala };
+                    drag.current = null;
+                    return;
+                  }
+                  drag.current = { id: el.id, startX: e.clientX, startY: e.clientY, baseX: el.x, baseY: el.y };
+                }} onWheel={e => { e.preventDefault(); e.stopPropagation(); updateEl(el.id, { escala: clamp(el.escala * (e.deltaY < 0 ? 1.08 : 0.92), 0.2, 6) }); }}>
                 <div className="relative inline-flex items-center justify-center overflow-visible" style={{ width: box.w, height: box.h }}>
                   {renderConteudo(el)}
                   {selected && (
                     <>
-                      <div className="absolute -inset-1 border border-[#C8A96E] rounded pointer-events-none shadow-[0_0_0_1px_rgba(255,255,255,.8)]" />
-                      <button type="button" title="Girar" onPointerDown={e => { e.preventDefault(); e.stopPropagation(); action.current = { id: el.id, startX: e.clientX, startY: e.clientY, escala: el.escala, rotacao: el.rotacao, mode: 'rotate' }; }} className="absolute left-1/2 -top-9 -translate-x-1/2 w-8 h-8 rounded-full border border-[#C8A96E] bg-card text-[#8A6F35] flex items-center justify-center shadow-sm"><RotateCcw size={13} /></button>
-                      <button type="button" title="Tamanho" onPointerDown={e => { e.preventDefault(); e.stopPropagation(); action.current = { id: el.id, startX: e.clientX, startY: e.clientY, escala: el.escala, rotacao: el.rotacao, mode: 'scale' }; }} className="absolute -right-4 -bottom-4 w-8 h-8 rounded-full border border-[#C8A96E] bg-card text-[#8A6F35] flex items-center justify-center shadow-sm"><Maximize2 size={13} /></button>
-                      <button type="button" title="Remover" onClick={e => { e.stopPropagation(); removeEl(el.id); }} className="absolute -right-4 -top-4 w-8 h-8 rounded-full border border-red-200 bg-card text-red-600 flex items-center justify-center shadow-sm"><Trash2 size={13} /></button>
+                      <div className="absolute -inset-1 border-2 border-white rounded pointer-events-none shadow-[0_0_0_1px_rgba(6,17,31,.35)]" />
+                      <button type="button" title="Girar" onPointerDown={e => { e.preventDefault(); e.stopPropagation(); action.current = { id: el.id, startX: e.clientX, startY: e.clientY, escala: el.escala, rotacao: el.rotacao, mode: 'rotate' }; }} className="absolute left-1/2 -top-10 -translate-x-1/2 w-9 h-9 rounded-full bg-[#06111F] text-white ring-2 ring-white flex items-center justify-center shadow-lg shadow-black/25 active:scale-95 transition-transform"><RotateCcw size={14} /></button>
+                      <button type="button" title="Tamanho" onPointerDown={e => { e.preventDefault(); e.stopPropagation(); action.current = { id: el.id, startX: e.clientX, startY: e.clientY, escala: el.escala, rotacao: el.rotacao, mode: 'scale' }; }} className="absolute -right-4 -bottom-4 w-9 h-9 rounded-full bg-[#06111F] text-white ring-2 ring-white flex items-center justify-center shadow-lg shadow-black/25 active:scale-95 transition-transform"><Maximize2 size={14} /></button>
+                      <button type="button" title="Remover" onClick={e => { e.stopPropagation(); removeEl(el.id); }} className="absolute -right-4 -top-4 w-9 h-9 rounded-full bg-red-600 text-white ring-2 ring-white flex items-center justify-center shadow-lg shadow-black/25 active:scale-95 transition-transform"><Trash2 size={14} /></button>
                     </>
                   )}
                 </div>

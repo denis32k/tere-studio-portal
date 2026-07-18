@@ -184,20 +184,23 @@ export function FrenteCanvas({ produto, mockup, photoUrl, transform, retouchStro
                   elemento SVG é uma combinação com histórico de bugs no Safari/WebKit (o
                   navegador às vezes ignora o filtro nesse caso, a foto sai sem o efeito de
                   gravação). Separar em elementos diferentes evita essa combinação. */}
-              <g mask={`url(#${maskId})`}><g transform={svgT} style={photoSvgStyle}><image href={photoUrlExibido} x="0" y="0" width="100" height="100" preserveAspectRatio="xMidYMid slice" mask={`url(#${maskId}_imageRetouch)`} /></g></g>
+              {/* "meet" (mostra a foto inteira, sem cortar) em vez de "slice" (preenche cortando o
+                  excesso) -- com slice, foto em modo retrato perdia topo/base pra caber num
+                  quadrado. Quem quiser preencher mais ainda pode dar zoom manualmente. */}
+              <g mask={`url(#${maskId})`}><g transform={svgT} style={photoSvgStyle}><image href={photoUrlExibido} x="0" y="0" width="100" height="100" preserveAspectRatio="xMidYMid meet" mask={`url(#${maskId}_imageRetouch)`} /></g></g>
               {retouchMode && brushPreview && <circle cx={brushPreview.canvasX} cy={brushPreview.canvasY} r={(brushSizePct / 2) * transform.scale} fill={retouchMode === 'erase' ? 'rgba(239,68,68,.18)' : 'rgba(34,197,94,.16)'} stroke={retouchMode === 'erase' ? '#EF4444' : '#22C55E'} strokeWidth="0.6" strokeDasharray="1 1" pointerEvents="none" />}
             </svg>
           ) : !img || !frontMask ? (
             <div className="absolute overflow-hidden" style={{ width: area.w, height: area.h, left: area.left, top: area.top, transform: 'translate(-50%, -50%)', clipPath: 'circle(48% at 50% 50%)' }} onPointerDown={e => startAction('drag', e)}>
-              {photoUrl ? <img src={photoUrlExibido} draggable={false} className="pointer-events-none select-none" style={{ width: '100%', height: '100%', objectFit: 'cover', transform: `translate(${transform.x}px, ${transform.y}px) rotate(${transform.rotation}deg) scale(${transform.flipH ? -transform.scale : transform.scale}, ${transform.scale})`, opacity: gravacaoVisual.opacity, mixBlendMode: gravacaoVisual.mixBlendMode, transformOrigin: 'center' }} /> : null}
+              {photoUrl ? <img src={photoUrlExibido} draggable={false} className="pointer-events-none select-none" style={{ width: '100%', height: '100%', objectFit: 'contain', transform: `translate(${transform.x}px, ${transform.y}px) rotate(${transform.rotation}deg) scale(${transform.flipH ? -transform.scale : transform.scale}, ${transform.scale})`, opacity: gravacaoVisual.opacity, mixBlendMode: gravacaoVisual.mixBlendMode, transformOrigin: 'center' }} /> : null}
             </div>
           ) : null}
           {photoUrl && selected && (
             <div className="absolute pointer-events-none" style={{ width: area.w, height: area.h, left: area.left, top: area.top, transform: 'translate(-50%, -50%)' }}>
-              <div className="absolute inset-0 border border-[#C8A96E] rounded-md shadow-[0_0_0_1px_rgba(255,255,255,.72)]" />
-              <button type="button" title="Girar" onPointerDown={e => startAction('rotate', e)} className="pointer-events-auto absolute left-1/2 -top-10 -translate-x-1/2 w-9 h-9 rounded-full border border-[#C8A96E] bg-white text-[#8A6F35] flex items-center justify-center shadow-sm"><RotateCcw size={15} /></button>
-              <button type="button" title="Tamanho" onPointerDown={e => startAction('scale', e)} className="pointer-events-auto absolute -right-4 -bottom-4 w-9 h-9 rounded-full border border-[#C8A96E] bg-white text-[#8A6F35] flex items-center justify-center shadow-sm"><Maximize2 size={15} /></button>
-              <button type="button" title="Remover foto" onClick={e => { e.stopPropagation(); onRemove(); }} className="pointer-events-auto absolute -right-4 -top-4 w-9 h-9 rounded-full border border-red-200 bg-white text-red-600 flex items-center justify-center shadow-sm"><Trash2 size={15} /></button>
+              <div className="absolute inset-0 border-2 border-white rounded-md shadow-[0_0_0_1px_rgba(6,17,31,.35)]" />
+              <button type="button" title="Girar" onPointerDown={e => startAction('rotate', e)} className="pointer-events-auto absolute left-1/2 -top-11 -translate-x-1/2 w-10 h-10 rounded-full bg-[#06111F] text-white ring-2 ring-white flex items-center justify-center shadow-lg shadow-black/25 active:scale-95 transition-transform"><RotateCcw size={16} /></button>
+              <button type="button" title="Tamanho" onPointerDown={e => startAction('scale', e)} className="pointer-events-auto absolute -right-5 -bottom-5 w-10 h-10 rounded-full bg-[#06111F] text-white ring-2 ring-white flex items-center justify-center shadow-lg shadow-black/25 active:scale-95 transition-transform"><Maximize2 size={16} /></button>
+              <button type="button" title="Remover foto" onClick={e => { e.stopPropagation(); onRemove(); }} className="pointer-events-auto absolute -right-5 -top-5 w-10 h-10 rounded-full bg-red-600 text-white ring-2 ring-white flex items-center justify-center shadow-lg shadow-black/25 active:scale-95 transition-transform"><Trash2 size={16} /></button>
             </div>
           )}
         </div>

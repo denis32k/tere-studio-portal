@@ -322,6 +322,12 @@ export default function EditorPage({
                   </IconButton>
                 </div>
               )}
+              {frenteImagem && !retoqueFrenteModo && (
+                <ToolBlock title="Ajustes">
+                  <RangeField label="Brilho" value={frenteTransform.brilho} min={50} max={150} step={1} onChange={v => setFrenteTransform(t => ({ ...t, brilho: v }))} />
+                  <RangeField label="Contraste" value={frenteTransform.contraste} min={50} max={150} step={1} onChange={v => setFrenteTransform(t => ({ ...t, contraste: v }))} />
+                </ToolBlock>
+              )}
               {retoqueFrenteModo && (
                 <ToolBlock title="Retoque manual">
                   <div className="grid grid-cols-2 gap-2">

@@ -1,8 +1,8 @@
 import type { PhotoTransform, Produto, ProductMockup, VersoElemento, VersoModoGravacao } from './types';
 import { imagemMockupLado, mascaraMockupLado, corVersoModo } from './normalize';
 import {
-  createCanvas, loadImageElement, roundedRectPath, drawRoundedPanel, drawImageCover, drawShapeClipBox,
-  drawImageContainBox, maskBoundsForPreview, drawQrModules, drawPreviewWatermark, drawPreviewFooterBrand,
+  createCanvas, loadImageElement, roundedRectPath, drawRoundedPanel, drawShapeClipBox,
+  drawImageContainBox, fitImageBox, maskBoundsForPreview, drawQrModules, drawPreviewWatermark, drawPreviewFooterBrand,
   converterMascaraParaAlpha, maskImageFromMask, fotoPreviewVisualProps, aplicarEfeitoGravacaoPixels, qrMake, type PreviewWatermarkAsset,
 } from './canvasHelpers';
 import { elementoBox, fonteFamilia } from './VersoCanvas';
@@ -77,7 +77,11 @@ export async function gerarPreviewCanvas(input: GerarPreviewInput): Promise<HTML
     offCtx.translate(target.x + target.width / 2 + frenteTransform.x * moveScaleX, target.y + target.height / 2 + frenteTransform.y * moveScaleY);
     offCtx.rotate((frenteTransform.rotation || 0) * Math.PI / 180);
     offCtx.scale((frenteTransform.flipH ? -1 : 1) * frenteTransform.scale, frenteTransform.scale);
-    drawImageCover(offCtx, frontPhotoImg, -target.width / 2, -target.height / 2, target.width, target.height, frontPhotoImg.naturalWidth || 1, frontPhotoImg.naturalHeight || 1);
+    // Mostra a foto inteira (contain) em vez de cortar o excesso (cover) -- combina com o editor
+    // ao vivo, que também passou a mostrar a foto inteira por padrão em vez de forçar um corte
+    // quadrado. Quem quiser preencher mais ainda pode dar zoom manualmente antes de gerar a prévia.
+    const fit = fitImageBox(target.width, target.height, frontPhotoImg.naturalWidth || 1, frontPhotoImg.naturalHeight || 1);
+    offCtx.drawImage(frontPhotoImg, -fit.width / 2, -fit.height / 2, fit.width, fit.height);
     aplicarEfeitoGravacaoPixels(offCtx, 0, 0, off.width, off.height, visual);
     ctx.save();
     ctx.globalAlpha = visual.opacity ?? 1;
