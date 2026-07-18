@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Maximize2, RotateCcw, Trash2 } from 'lucide-react';
 import { clamp, type PaintStroke, type PhotoTransform, type Produto, type ProductMockup } from './types';
 import { imagemMockupLado, mascaraMockupLado } from './normalize';
-import { fotoPreviewVisualProps } from './canvasHelpers';
+import { fotoPreviewVisualProps, bakeGravacaoNaFoto } from './canvasHelpers';
 import { ProdutoFallback } from './ui';
 
 export function FrenteCanvas({ produto, mockup, photoUrl, transform, retouchStrokes = [], retouchMode = null, brushSizePct = 4, onRetouchStroke, onCancelRetouch, onTransformChange, selected, onSelect, onRemove, size = 310 }: {
@@ -25,6 +25,20 @@ export function FrenteCanvas({ produto, mockup, photoUrl, transform, retouchStro
   const maskId = useRef(`portalFrontMask_${Math.random().toString(36).slice(2)}`).current;
   const canvasSize = size;
   const [brushPreview, setBrushPreview] = useState<{ canvasX: number; canvasY: number; imageX: number; imageY: number } | null>(null);
+
+  // A cor/gravação da foto vem "assada" nos pixels, não de CSS filter -- ctx.filter e depois
+  // filter+mask no mesmo elemento SVG já se mostraram ignorados em navegador mobile real (duas
+  // tentativas anteriores, confirmadas pelo lojista testando em iPhone de verdade). Assar direto
+  // no arquivo elimina de vez a dependência do navegador aplicar o filtro CSS certo.
+  const [bakedPhotoUrl, setBakedPhotoUrl] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    if (!photoUrl) { setBakedPhotoUrl(undefined); return; }
+    let ativo = true;
+    bakeGravacaoNaFoto(photoUrl, produto, mockup, transform).then(url => { if (ativo) setBakedPhotoUrl(url); }).catch(() => { if (ativo) setBakedPhotoUrl(undefined); });
+    return () => { ativo = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [photoUrl, produto?.cor, mockup?.modoGravacaoPadrao, transform.brilho, transform.contraste]);
+  const photoUrlExibido = bakedPhotoUrl || photoUrl;
 
   useEffect(() => {
     const flushTransform = () => {
@@ -144,7 +158,9 @@ export function FrenteCanvas({ produto, mockup, photoUrl, transform, retouchStro
   );
 
   const gravacaoVisual = fotoPreviewVisualProps(produto, mockup, transform);
-  const photoSvgStyle: React.CSSProperties = { filter: gravacaoVisual.filter, opacity: gravacaoVisual.opacity, mixBlendMode: gravacaoVisual.mixBlendMode };
+  // Sem filter aqui -- a cor já vem assada em photoUrlExibido (ver useEffect acima). Só opacity e
+  // mix-blend-mode continuam via CSS, que dependem de como a foto se compõe com o mockup por baixo.
+  const photoSvgStyle: React.CSSProperties = { opacity: gravacaoVisual.opacity, mixBlendMode: gravacaoVisual.mixBlendMode };
   const area = {
     w: canvasSize * (b.wPct / 100), h: canvasSize * (b.hPct / 100),
     left: canvasSize * ((b.xPct + b.wPct / 2) / 100), top: canvasSize * ((b.yPct + b.hPct / 2) / 100),
@@ -168,12 +184,12 @@ export function FrenteCanvas({ produto, mockup, photoUrl, transform, retouchStro
                   elemento SVG é uma combinação com histórico de bugs no Safari/WebKit (o
                   navegador às vezes ignora o filtro nesse caso, a foto sai sem o efeito de
                   gravação). Separar em elementos diferentes evita essa combinação. */}
-              <g mask={`url(#${maskId})`}><g transform={svgT} style={photoSvgStyle}><image href={photoUrl} x="0" y="0" width="100" height="100" preserveAspectRatio="xMidYMid slice" mask={`url(#${maskId}_imageRetouch)`} /></g></g>
+              <g mask={`url(#${maskId})`}><g transform={svgT} style={photoSvgStyle}><image href={photoUrlExibido} x="0" y="0" width="100" height="100" preserveAspectRatio="xMidYMid slice" mask={`url(#${maskId}_imageRetouch)`} /></g></g>
               {retouchMode && brushPreview && <circle cx={brushPreview.canvasX} cy={brushPreview.canvasY} r={(brushSizePct / 2) * transform.scale} fill={retouchMode === 'erase' ? 'rgba(239,68,68,.18)' : 'rgba(34,197,94,.16)'} stroke={retouchMode === 'erase' ? '#EF4444' : '#22C55E'} strokeWidth="0.6" strokeDasharray="1 1" pointerEvents="none" />}
             </svg>
           ) : !img || !frontMask ? (
             <div className="absolute overflow-hidden" style={{ width: area.w, height: area.h, left: area.left, top: area.top, transform: 'translate(-50%, -50%)', clipPath: 'circle(48% at 50% 50%)' }} onPointerDown={e => startAction('drag', e)}>
-              {photoUrl ? <img src={photoUrl} draggable={false} className="pointer-events-none select-none" style={{ width: '100%', height: '100%', objectFit: 'cover', transform: `translate(${transform.x}px, ${transform.y}px) rotate(${transform.rotation}deg) scale(${transform.flipH ? -transform.scale : transform.scale}, ${transform.scale})`, filter: gravacaoVisual.filter, opacity: gravacaoVisual.opacity, mixBlendMode: gravacaoVisual.mixBlendMode, transformOrigin: 'center' }} /> : null}
+              {photoUrl ? <img src={photoUrlExibido} draggable={false} className="pointer-events-none select-none" style={{ width: '100%', height: '100%', objectFit: 'cover', transform: `translate(${transform.x}px, ${transform.y}px) rotate(${transform.rotation}deg) scale(${transform.flipH ? -transform.scale : transform.scale}, ${transform.scale})`, opacity: gravacaoVisual.opacity, mixBlendMode: gravacaoVisual.mixBlendMode, transformOrigin: 'center' }} /> : null}
             </div>
           ) : null}
           {photoUrl && selected && (

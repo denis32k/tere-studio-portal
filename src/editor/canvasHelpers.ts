@@ -245,6 +245,26 @@ export function fotoPreviewVisualProps(produto?: Produto, mockup?: { modoGravaca
   return { filter: `grayscale(1) brightness(${brilho}) contrast(${contraste + 0.1})`, opacity: 0.78, mixBlendMode: 'multiply', grayscale: true, brightness: brilho, contrast: contraste + 0.1, sepia: 0 };
 }
 
+// Gera uma cópia da foto já com o efeito de gravação "assado" nos pixels (grayscale/sépia/
+// brilho/contraste), pronta pra usar como src/href no lugar do CSS filter. Existe porque o CSS
+// filter na foto do editor ao vivo (FrenteCanvas.tsx) já se mostrou pouco confiável em navegador
+// mobile em mais de uma tentativa (ctx.filter ignorado, e depois filter+mask no mesmo elemento SVG
+// também ignorado em algum motor mobile) -- assar direto no arquivo elimina a dependência do
+// navegador aplicar o filtro CSS corretamente. Opacity/mix-blend-mode continuam via CSS (mais
+// simples, sem o mesmo histórico de bugs, e dependem da composição com o mockup por baixo).
+export async function bakeGravacaoNaFoto(photoUrl: string, produto?: Produto, mockup?: { modoGravacaoPadrao?: string; cor?: string }, transform?: { brilho?: number; contraste?: number }): Promise<string> {
+  const img = await loadImageElement(photoUrl);
+  const w = Math.max(1, img.naturalWidth || 1);
+  const h = Math.max(1, img.naturalHeight || 1);
+  const canvas = createCanvas(w, h);
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return photoUrl;
+  ctx.drawImage(img, 0, 0, w, h);
+  const visual = fotoPreviewVisualProps(produto, mockup, transform);
+  aplicarEfeitoGravacaoPixels(ctx, 0, 0, w, h, visual);
+  return canvas.toDataURL('image/png');
+}
+
 // Aplica grayscale/sépia/brilho/contraste pixel a pixel num canvas -- substitui ctx.filter (ver
 // GravacaoVisual acima pro motivo). Fórmulas batendo com o que o CSS filter faria: luma Rec.709 pro
 // grayscale, matriz padrão pro sépia, (v-128)*contraste+128 pro contraste.
