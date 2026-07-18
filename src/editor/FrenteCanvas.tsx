@@ -18,6 +18,10 @@ export function FrenteCanvas({ produto, mockup, photoUrl, transform, retouchStro
   const action = useRef<{ mode: 'drag' | 'scale' | 'rotate'; startX: number; startY: number; start: PhotoTransform } | null>(null);
   const rafTransform = useRef<number | null>(null);
   const pendingTransform = useRef<PhotoTransform | null>(null);
+  // Pinça com 2 dedos pra dar zoom -- os botões de girar/tamanho já cobriam 1 dedo, mas
+  // pinça é o gesto que todo mundo tenta primeiro num app de foto.
+  const activePointers = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const pinchStart = useRef<{ distance: number; start: PhotoTransform } | null>(null);
   const maskId = useRef(`portalFrontMask_${Math.random().toString(36).slice(2)}`).current;
   const canvasSize = size;
   const [brushPreview, setBrushPreview] = useState<{ canvasX: number; canvasY: number; imageX: number; imageY: number } | null>(null);
@@ -40,6 +44,14 @@ export function FrenteCanvas({ produto, mockup, photoUrl, transform, retouchStro
       });
     };
     const move = (ev: PointerEvent) => {
+      if (activePointers.current.has(ev.pointerId)) activePointers.current.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+      if (pinchStart.current && activePointers.current.size === 2) {
+        const [p1, p2] = Array.from(activePointers.current.values());
+        const distance = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+        const ratio = distance / Math.max(1, pinchStart.current.distance);
+        emitTransform({ ...pinchStart.current.start, scale: clamp(pinchStart.current.start.scale * ratio, 0.25, 5) });
+        return;
+      }
       const a = action.current;
       if (!a) return;
       const dx = ev.clientX - a.startX;
@@ -48,10 +60,21 @@ export function FrenteCanvas({ produto, mockup, photoUrl, transform, retouchStro
       if (a.mode === 'scale') emitTransform({ ...a.start, scale: clamp(a.start.scale + (dx + dy) / 190, 0.25, 5) });
       if (a.mode === 'rotate') emitTransform({ ...a.start, rotation: Math.round(a.start.rotation + dx * 0.75) });
     };
-    const up = () => { flushTransform(); action.current = null; };
+    const up = (ev: PointerEvent) => {
+      activePointers.current.delete(ev.pointerId);
+      if (activePointers.current.size < 2) pinchStart.current = null;
+      flushTransform();
+      action.current = null;
+    };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
-    return () => { flushTransform(); window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+    window.addEventListener('pointercancel', up);
+    return () => {
+      flushTransform();
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
+    };
   }, [onTransformChange]);
 
   const pointerToRetouchPoint = (e: React.PointerEvent<SVGSVGElement>) => {
@@ -88,6 +111,15 @@ export function FrenteCanvas({ produto, mockup, photoUrl, transform, retouchStro
   const startAction = (mode: 'drag' | 'scale' | 'rotate', e: React.PointerEvent) => {
     if (!photoUrl) return;
     e.preventDefault(); e.stopPropagation(); onSelect();
+    if (mode === 'drag') {
+      activePointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (activePointers.current.size >= 2) {
+        const [p1, p2] = Array.from(activePointers.current.values()).slice(0, 2);
+        pinchStart.current = { distance: Math.max(1, Math.hypot(p2.x - p1.x, p2.y - p1.y)), start: { ...transform } };
+        action.current = null;
+        return;
+      }
+    }
     action.current = { mode, startX: e.clientX, startY: e.clientY, start: { ...transform } };
   };
 
