@@ -69,4 +69,12 @@ body {
   .safe-bottom {
     padding-bottom: env(safe-area-inset-bottom);
   }
+  /* 100vh no Safari do iPhone conta o espaço atrás da barra de endereço, que quase nunca está
+     visível de fato -- a tela fica "mais alta" que a área vis­ível e força rolagem da página
+     inteira mesmo quando o conteúdo caberia. 100dvh mede a altura realmente visível; o navegador
+     que não conhece dvh ignora essa linha e fica só com o 100vh de cima. */
+  .min-h-screen-safe {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
 }
