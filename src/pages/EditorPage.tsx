@@ -295,7 +295,10 @@ export default function EditorPage({ produto, mockup, cliente, fontesAtivas, onV
         <div className="flex-shrink-0 border-t border-border bg-card px-4 py-3 space-y-2.5 safe-bottom max-h-[38vh] overflow-y-auto">
           {aba === 'frente' ? (
             <>
-              <input ref={frenteInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={e => uploadFrente(e.target.files?.[0])} />
+              {/* Sem capture="environment": esse atributo força o navegador a abrir a câmera
+                  direto, sem opção de escolher da galeria -- a pessoa quase sempre quer enviar
+                  uma foto que já tem, não tirar uma na hora. */}
+              <input ref={frenteInputRef} type="file" accept="image/*" className="hidden" onChange={e => uploadFrente(e.target.files?.[0])} />
               {!frenteImagem ? (
                 <button onClick={() => frenteInputRef.current?.click()} className="w-full h-14 rounded-2xl border border-dashed border-[#C8A96E]/60 bg-[#F7F3EB] flex items-center justify-center gap-2 text-sm font-semibold text-[#6B5A32]">
                   <Upload size={16} />Enviar foto
