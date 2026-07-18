@@ -214,18 +214,71 @@ export function converterMascaraParaAlpha(maskUrl: string): Promise<string> {
 export function maskImageFromMask(mask?: MaskResult) {
   return mask?.guardBitmapDataUrl || mask?.bitmapDataUrl || undefined;
 }
-export function fotoPreviewVisualProps(produto?: Produto, mockup?: { modoGravacaoPadrao?: string; cor?: string }, transform?: { brilho?: number; contraste?: number }) {
+export type GravacaoVisual = {
+  filter: string;
+  opacity: number;
+  mixBlendMode: 'screen' | 'multiply';
+  // Mesmo efeito em números soltos (não como string de CSS filter) -- CanvasRenderingContext2D.filter
+  // tem suporte incompleto em navegador mobile mais antigo (Safari/iOS antes da 15.4 não tinha nada),
+  // e nesse caso ctx.filter é simplesmente ignorado: a prévia final sai com a foto em cor normal,
+  // sem simular a gravação. Esses números aqui alimentam um processamento manual de pixel (sempre
+  // funciona, em qualquer navegador) usado só na hora de gerar a prévia final -- o editor ao vivo
+  // continua usando o filter de CSS normal, que tem suporte universal em qualquer navegador.
+  grayscale: boolean;
+  brightness: number;
+  contrast: number;
+  sepia: number;
+};
+export function fotoPreviewVisualProps(produto?: Produto, mockup?: { modoGravacaoPadrao?: string; cor?: string }, transform?: { brilho?: number; contraste?: number }): GravacaoVisual {
   const cor = String(produto?.cor || '').toLowerCase();
   const brilho = Number(transform?.brilho || 100) / 100;
   const contraste = Number(transform?.contraste || 110) / 100;
   const modo = mockup?.modoGravacaoPadrao || (cor === 'preta' || cor === 'preto' ? 'remocao_tinta_preta' : 'escurecido_pb');
   if (modo === 'remocao_tinta_preta') {
-    return { filter: `grayscale(1) brightness(${Math.max(1.3, brilho)}) contrast(${Math.max(1.2, contraste)})`, opacity: 0.96, mixBlendMode: 'screen' as const };
+    const b = Math.max(1.3, brilho);
+    const c = Math.max(1.2, contraste);
+    return { filter: `grayscale(1) brightness(${b}) contrast(${c})`, opacity: 0.96, mixBlendMode: 'screen', grayscale: true, brightness: b, contrast: c, sepia: 0 };
   }
   if (cor === 'dourada' || cor === 'dourado') {
-    return { filter: `grayscale(1) sepia(.18) brightness(${brilho}) contrast(${contraste + 0.05})`, opacity: 0.78, mixBlendMode: 'multiply' as const };
+    return { filter: `grayscale(1) sepia(.18) brightness(${brilho}) contrast(${contraste + 0.05})`, opacity: 0.78, mixBlendMode: 'multiply', grayscale: true, brightness: brilho, contrast: contraste + 0.05, sepia: 0.18 };
   }
-  return { filter: `grayscale(1) brightness(${brilho}) contrast(${contraste + 0.1})`, opacity: 0.78, mixBlendMode: 'multiply' as const };
+  return { filter: `grayscale(1) brightness(${brilho}) contrast(${contraste + 0.1})`, opacity: 0.78, mixBlendMode: 'multiply', grayscale: true, brightness: brilho, contrast: contraste + 0.1, sepia: 0 };
+}
+
+// Aplica grayscale/sépia/brilho/contraste pixel a pixel num canvas -- substitui ctx.filter (ver
+// GravacaoVisual acima pro motivo). Fórmulas batendo com o que o CSS filter faria: luma Rec.709 pro
+// grayscale, matriz padrão pro sépia, (v-128)*contraste+128 pro contraste.
+export function aplicarEfeitoGravacaoPixels(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, visual: GravacaoVisual) {
+  const ix = Math.max(0, Math.floor(x));
+  const iy = Math.max(0, Math.floor(y));
+  const iw = Math.max(0, Math.min(ctx.canvas.width - ix, Math.ceil(w)));
+  const ih = Math.max(0, Math.min(ctx.canvas.height - iy, Math.ceil(h)));
+  if (iw <= 0 || ih <= 0) return;
+  let imgData: ImageData;
+  try { imgData = ctx.getImageData(ix, iy, iw, ih); } catch { return; }
+  const d = imgData.data;
+  const { grayscale, sepia, brightness, contrast } = visual;
+  for (let i = 0; i < d.length; i += 4) {
+    let r = d[i];
+    let g = d[i + 1];
+    let b = d[i + 2];
+    if (grayscale) {
+      const gray = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      r = gray; g = gray; b = gray;
+    }
+    if (sepia > 0) {
+      const sr = 0.393 * r + 0.769 * g + 0.189 * b;
+      const sg = 0.349 * r + 0.686 * g + 0.168 * b;
+      const sb = 0.272 * r + 0.534 * g + 0.131 * b;
+      r += (sr - r) * sepia; g += (sg - g) * sepia; b += (sb - b) * sepia;
+    }
+    r *= brightness; g *= brightness; b *= brightness;
+    r = (r - 128) * contrast + 128; g = (g - 128) * contrast + 128; b = (b - 128) * contrast + 128;
+    d[i] = r < 0 ? 0 : r > 255 ? 255 : r;
+    d[i + 1] = g < 0 ? 0 : g > 255 ? 255 : g;
+    d[i + 2] = b < 0 ? 0 : b > 255 ? 255 : b;
+  }
+  ctx.putImageData(imgData, ix, iy);
 }
 
 // --- Gerador de QR Code (versões 1-9, correção de erro nível L) --------------------------------

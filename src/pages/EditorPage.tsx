@@ -8,11 +8,11 @@ import { IconButton, ToolBlock, RangeField, FormModal, SymbolsModal, watermarkAs
 import { FrenteCanvas } from '../editor/FrenteCanvas';
 import { VersoCanvas } from '../editor/VersoCanvas';
 import { fonteFamilia } from '../editor/VersoCanvas';
-import { corNome, modoVersoPadrao } from '../editor/normalize';
+import { corNome } from '../editor/normalize';
 import { gerarPreviewCanvas, compartilharOuBaixarPreview, canvasToBlob, nomeArquivoPreview } from '../editor/preview';
 import { gerarSpotifyCodePortal } from '../editor/spotify';
 import { removerFundoClientSide } from '../editor/bgRemoval';
-import { clamp, projetoTransformPadrao, uid, type PaintStroke, type PhotoTransform, type Produto, type ProductMockup, type VersoElemento, type VersoModoGravacao } from '../editor/types';
+import { clamp, uid, type PaintStroke, type PhotoTransform, type Produto, type ProductMockup, type VersoElemento, type VersoModoGravacao } from '../editor/types';
 import type { ClienteResumo } from '../lib/api';
 
 const MAX_IMAGE_DIM = 1000;
@@ -59,18 +59,25 @@ function useViewportWidth() {
 
 type FonteAtiva = { value: string; label: string; idx: number };
 
-export default function EditorPage({ produto, mockup, cliente, fontesAtivas, onVoltar }: { produto: Produto; mockup: ProductMockup; cliente: ClienteResumo | null; fontesAtivas: FonteAtiva[]; onVoltar: () => void }) {
+type EditorPageProps = {
+  produto: Produto; mockup: ProductMockup; cliente: ClienteResumo | null; fontesAtivas: FonteAtiva[]; onVoltar: () => void;
+  // Conteúdo do projeto controlado pelo App -- sobrevive quando a pessoa volta pro catálogo e
+  // troca de mockup, em vez de resetar toda vez que este componente desmonta/remonta.
+  frenteImagem?: string; setFrenteImagem: React.Dispatch<React.SetStateAction<string | undefined>>;
+  frenteTransform: PhotoTransform; setFrenteTransform: React.Dispatch<React.SetStateAction<PhotoTransform>>;
+  frenteRetoques: PaintStroke[]; setFrenteRetoques: React.Dispatch<React.SetStateAction<PaintStroke[]>>;
+  versoModoGravacao: VersoModoGravacao; setVersoModoGravacao: React.Dispatch<React.SetStateAction<VersoModoGravacao | null>>;
+  versoElementos: VersoElemento[]; setVersoElementos: React.Dispatch<React.SetStateAction<VersoElemento[]>>;
+};
+
+export default function EditorPage({
+  produto, mockup, cliente, fontesAtivas, onVoltar,
+  frenteImagem, setFrenteImagem, frenteTransform, setFrenteTransform, frenteRetoques, setFrenteRetoques,
+  versoModoGravacao, setVersoModoGravacao, versoElementos, setVersoElementos,
+}: EditorPageProps) {
   const [aba, setAba] = useState<'frente' | 'verso'>('frente');
-  const [frenteImagem, setFrenteImagem] = useState<string | undefined>();
-  const [frenteTransform, setFrenteTransform] = useState<PhotoTransform>(() => projetoTransformPadrao());
-  const [frenteRetoques, setFrenteRetoques] = useState<PaintStroke[]>([]);
   const [retoqueFrenteModo, setRetoqueFrenteModo] = useState<'erase' | 'add' | null>(null);
   const [retoquePincel, setRetoquePincel] = useState(4);
-  const [versoModoGravacao, setVersoModoGravacao] = useState<VersoModoGravacao>(() => modoVersoPadrao(produto, mockup));
-  const [versoElementos, setVersoElementosRaw] = useState<VersoElemento[]>([]);
-  const setVersoElementos = (updater: VersoElemento[] | ((prev: VersoElemento[]) => VersoElemento[])) => {
-    setVersoElementosRaw(prev => (typeof updater === 'function' ? updater(prev) : updater));
-  };
   const [selected, setSelected] = useState<'frente_foto' | string | null>(null);
   const selectedVerso = typeof selected === 'string' && selected !== 'frente_foto' ? versoElementos.find(e => e.id === selected) || null : null;
   const [zoom, setZoom] = useState(1);

@@ -3,7 +3,7 @@ import { imagemMockupLado, mascaraMockupLado, corVersoModo } from './normalize';
 import {
   createCanvas, loadImageElement, roundedRectPath, drawRoundedPanel, drawImageCover, drawShapeClipBox,
   drawImageContainBox, maskBoundsForPreview, drawQrModules, drawPreviewWatermark, drawPreviewFooterBrand,
-  converterMascaraParaAlpha, maskImageFromMask, fotoPreviewVisualProps, qrMake, type PreviewWatermarkAsset,
+  converterMascaraParaAlpha, maskImageFromMask, fotoPreviewVisualProps, aplicarEfeitoGravacaoPixels, qrMake, type PreviewWatermarkAsset,
 } from './canvasHelpers';
 import { elementoBox, fonteFamilia } from './VersoCanvas';
 import { spotifyCodeFiltroProjeto } from './ui';
@@ -66,14 +66,23 @@ export async function gerarPreviewCanvas(input: GerarPreviewInput): Promise<HTML
     const editorSize = Math.max(1, mockupFrenteSize || 315);
     const moveScaleX = target.width / editorSize;
     const moveScaleY = target.height / editorSize;
+    // Desenha num canvas à parte (mesmo tamanho da prévia inteira, pra não cortar nada quando a
+    // foto está rotacionada) e aplica o efeito de gravação por pixel ali, não com ctx.filter --
+    // depois só compõe no canvas principal com o blend mode. Motivo em GravacaoVisual/
+    // aplicarEfeitoGravacaoPixels: ctx.filter não tem suporte em navegador mobile mais antigo, e
+    // nesse caso a foto saía em cor normal na prévia final em vez de simular a gravação.
+    const off = createCanvas(ctx.canvas.width, ctx.canvas.height);
+    const offCtx = off.getContext('2d');
+    if (!offCtx) return;
+    offCtx.translate(target.x + target.width / 2 + frenteTransform.x * moveScaleX, target.y + target.height / 2 + frenteTransform.y * moveScaleY);
+    offCtx.rotate((frenteTransform.rotation || 0) * Math.PI / 180);
+    offCtx.scale((frenteTransform.flipH ? -1 : 1) * frenteTransform.scale, frenteTransform.scale);
+    drawImageCover(offCtx, frontPhotoImg, -target.width / 2, -target.height / 2, target.width, target.height, frontPhotoImg.naturalWidth || 1, frontPhotoImg.naturalHeight || 1);
+    aplicarEfeitoGravacaoPixels(offCtx, 0, 0, off.width, off.height, visual);
     ctx.save();
-    ctx.filter = visual.filter || 'none';
     ctx.globalAlpha = visual.opacity ?? 1;
     ctx.globalCompositeOperation = visual.mixBlendMode === 'screen' ? 'screen' : visual.mixBlendMode === 'multiply' ? 'multiply' : 'source-over';
-    ctx.translate(target.x + target.width / 2 + frenteTransform.x * moveScaleX, target.y + target.height / 2 + frenteTransform.y * moveScaleY);
-    ctx.rotate((frenteTransform.rotation || 0) * Math.PI / 180);
-    ctx.scale((frenteTransform.flipH ? -1 : 1) * frenteTransform.scale, frenteTransform.scale);
-    drawImageCover(ctx, frontPhotoImg, -target.width / 2, -target.height / 2, target.width, target.height, frontPhotoImg.naturalWidth || 1, frontPhotoImg.naturalHeight || 1);
+    ctx.drawImage(off, 0, 0);
     ctx.restore();
   };
 

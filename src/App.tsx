@@ -7,7 +7,8 @@ import { getToken, setToken, clearToken, portalLogout, portalFontsGet, type Clie
 import { loadStoredCliente, storeCliente } from './lib/auth';
 import { aplicarFontesCustomizadas, fontesAtivasParaPersonalizar } from './editor/fonts';
 import { modeloRemoverFundoJaBaixado, getSessaoRemoverFundo } from './editor/bgRemoval';
-import type { Produto, ProductMockup } from './editor/types';
+import { modoVersoPadrao } from './editor/normalize';
+import { projetoTransformPadrao, type PaintStroke, type PhotoTransform, type Produto, type ProductMockup, type VersoElemento, type VersoModoGravacao } from './editor/types';
 
 type Selecao = { produto: Produto; mockup: ProductMockup } | null;
 
@@ -17,6 +18,15 @@ export default function App() {
   const [selecao, setSelecao] = useState<Selecao>(null);
   const [fontesAtivas, setFontesAtivas] = useState<{ value: string; label: string; idx: number }[]>([{ value: 'Letra 1', label: 'Letra 1', idx: 1 }]);
   const [baixandoModeloPct, setBaixandoModeloPct] = useState<number | null>(null);
+
+  // Conteúdo do projeto (foto, ajuste dela, elementos do verso) mora aqui, não dentro do
+  // EditorPage -- assim sobrevive quando a pessoa volta pro catálogo pra trocar de mockup sem
+  // querer perder o que já tinha personalizado.
+  const [frenteImagem, setFrenteImagem] = useState<string | undefined>();
+  const [frenteTransform, setFrenteTransform] = useState<PhotoTransform>(() => projetoTransformPadrao());
+  const [frenteRetoques, setFrenteRetoques] = useState<PaintStroke[]>([]);
+  const [versoModoGravacao, setVersoModoGravacaoRaw] = useState<VersoModoGravacao | null>(null);
+  const [versoElementos, setVersoElementos] = useState<VersoElemento[]>([]);
 
   useEffect(() => {
     if (!token) return;
@@ -62,6 +72,11 @@ export default function App() {
     setTokenState('');
     setClienteState(null);
     setSelecao(null);
+    setFrenteImagem(undefined);
+    setFrenteTransform(projetoTransformPadrao());
+    setFrenteRetoques([]);
+    setVersoModoGravacaoRaw(null);
+    setVersoElementos([]);
   };
 
   if (!token) return <LoginPage onLogin={handleLogin} />;
@@ -73,6 +88,16 @@ export default function App() {
       cliente={cliente}
       fontesAtivas={fontesAtivas}
       onVoltar={() => setSelecao(null)}
+      frenteImagem={frenteImagem}
+      setFrenteImagem={setFrenteImagem}
+      frenteTransform={frenteTransform}
+      setFrenteTransform={setFrenteTransform}
+      frenteRetoques={frenteRetoques}
+      setFrenteRetoques={setFrenteRetoques}
+      versoModoGravacao={versoModoGravacao ?? modoVersoPadrao(selecao.produto, selecao.mockup)}
+      setVersoModoGravacao={setVersoModoGravacaoRaw}
+      versoElementos={versoElementos}
+      setVersoElementos={setVersoElementos}
     />
   ) : (
     <CatalogPage
