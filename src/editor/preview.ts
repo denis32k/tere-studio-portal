@@ -6,6 +6,7 @@ import {
   converterMascaraParaAlpha, maskImageFromMask, fotoPreviewVisualProps, qrMake, type PreviewWatermarkAsset,
 } from './canvasHelpers';
 import { elementoBox, fonteFamilia } from './VersoCanvas';
+import { spotifyCodeFiltroProjeto } from './ui';
 
 export type GerarPreviewInput = {
   produto: Produto;
@@ -41,14 +42,18 @@ export async function gerarPreviewCanvas(input: GerarPreviewInput): Promise<HTML
   const mockVersoImg = mockVersoSrc ? await loadImageElement(mockVersoSrc).catch(() => null) : null;
   const frontPhotoImg = frenteImagem ? await loadImageElement(frenteImagem).catch(() => null) : null;
   const hasVerso = versoElementos.length > 0;
+  const spotifyImages = new Map<string, HTMLImageElement | null>();
+  await Promise.all(versoElementos.filter(el => el.tipo === 'spotify' && el.meta?.imagem).map(async el => {
+    spotifyImages.set(el.id, await loadImageElement(el.meta!.imagem!).catch(() => null));
+  }));
 
   const drawPieceBase = (ctx: CanvasRenderingContext2D, areaLabel: string) => {
-    drawRoundedPanel(ctx, 14, 14, panelWidth - 28, panelHeight - 28, 28, '#FFFFFF');
-    ctx.strokeStyle = 'rgba(148,163,184,.18)';
+    drawRoundedPanel(ctx, 14, 14, panelWidth - 28, panelHeight - 28, 28, '#FFFDF8');
+    ctx.strokeStyle = 'rgba(200,169,110,.25)';
     ctx.lineWidth = 1;
     roundedRectPath(ctx, 14, 14, panelWidth - 28, panelHeight - 28, 28);
     ctx.stroke();
-    ctx.fillStyle = '#0F172A';
+    ctx.fillStyle = '#06111F';
     ctx.font = '600 26px Inter, Arial, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -77,7 +82,7 @@ export async function gerarPreviewCanvas(input: GerarPreviewInput): Promise<HTML
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Não consegui preparar a prévia.');
     drawPieceBase(ctx, 'Frente');
-    ctx.fillStyle = '#F8FAFC';
+    ctx.fillStyle = '#FFFDF8';
     roundedRectPath(ctx, pieceX - 10, pieceY - 10, pieceSquare + 20, pieceSquare + 20, 26);
     ctx.fill();
     const mockFrontBox = mockFrontImg
@@ -132,6 +137,17 @@ export async function gerarPreviewCanvas(input: GerarPreviewInput): Promise<HTML
       ctx.restore();
       return;
     }
+    if (el.tipo === 'spotify') {
+      const spotifyImg = spotifyImages.get(el.id) || null;
+      if (spotifyImg) {
+        const filtroAnterior = ctx.filter;
+        ctx.filter = spotifyCodeFiltroProjeto(engravingColor);
+        ctx.drawImage(spotifyImg, -63, -15, 126, 30);
+        ctx.filter = filtroAnterior;
+      }
+      ctx.restore();
+      return;
+    }
     if (el.tipo === 'simbolo') {
       ctx.font = '400 40px Georgia, serif';
       ctx.fillText(el.conteudo || '♥', 0, 0);
@@ -155,7 +171,7 @@ export async function gerarPreviewCanvas(input: GerarPreviewInput): Promise<HTML
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Não consegui preparar a prévia.');
     drawPieceBase(ctx, 'Verso');
-    ctx.fillStyle = '#F8FAFC';
+    ctx.fillStyle = '#FFFDF8';
     roundedRectPath(ctx, pieceX - 10, pieceY - 10, pieceSquare + 20, pieceSquare + 20, 26);
     ctx.fill();
     const mockVersoBox = mockVersoImg
@@ -194,17 +210,17 @@ export async function gerarPreviewCanvas(input: GerarPreviewInput): Promise<HTML
   const fctx = finalCanvas.getContext('2d');
   if (!fctx) throw new Error('Não consegui montar a prévia.');
   const bg = fctx.createLinearGradient(0, 0, finalWidth, finalHeight);
-  bg.addColorStop(0, '#F8FAFC');
-  bg.addColorStop(1, '#EEF2FF');
+  bg.addColorStop(0, '#F7F4EF');
+  bg.addColorStop(1, '#F0E6D2');
   fctx.fillStyle = bg;
   fctx.fillRect(0, 0, finalWidth, finalHeight);
-  fctx.fillStyle = '#0F172A';
+  fctx.fillStyle = '#06111F';
   fctx.textAlign = 'center';
   fctx.textBaseline = 'top';
   fctx.font = '700 44px Inter, Arial, sans-serif';
   fctx.fillText('Prévia do projeto', finalWidth / 2, 48);
   fctx.font = '500 24px Inter, Arial, sans-serif';
-  fctx.fillStyle = '#475569';
+  fctx.fillStyle = '#6B5A32';
   fctx.fillText(produto.nome || 'Produto personalizado', finalWidth / 2, 104);
   const startY = 182;
   if (versoCanvas) {

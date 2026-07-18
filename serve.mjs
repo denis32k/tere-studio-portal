@@ -1,5 +1,6 @@
 import http from 'node:http';
 import fs from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -10,6 +11,7 @@ const PORT = Number(process.env.PORT || 8080);
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'application/javascript; charset=utf-8',
+  '.mjs': 'application/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
   '.webmanifest': 'application/manifest+json; charset=utf-8',
@@ -21,6 +23,8 @@ const MIME = {
   '.ttf': 'font/ttf',
   '.otf': 'font/otf',
   '.txt': 'text/plain; charset=utf-8',
+  '.onnx': 'application/octet-stream',
+  '.wasm': 'application/wasm',
 };
 
 // sw.js e o manifest nunca podem ficar em cache agressivo -- é assim que o navegador descobre
@@ -45,6 +49,19 @@ async function resolveFile(urlPath) {
   return null;
 }
 
+// Parser simples de "Range: bytes=INICIO-FIM". Só o formato de um intervalo, que é o único
+// que fetch()/<video>/download managers geram na prática.
+function parseRange(rangeHeader, size) {
+  const m = /^bytes=(\d*)-(\d*)$/.exec(String(rangeHeader || '').trim());
+  if (!m) return null;
+  const [, startRaw, endRaw] = m;
+  if (!startRaw && !endRaw) return null;
+  let start = startRaw ? Number(startRaw) : size - Number(endRaw);
+  let end = endRaw && startRaw ? Number(endRaw) : size - 1;
+  if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end >= size || start > end) return null;
+  return { start, end };
+}
+
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
@@ -55,13 +72,26 @@ const server = http.createServer(async (req, res) => {
     if (!filePath) { urlPath = '/index.html'; filePath = await resolveFile(urlPath); }
     if (!filePath) { res.writeHead(404); res.end('Não encontrado'); return; }
     const ext = path.extname(filePath).toLowerCase();
-    const body = await fs.readFile(filePath);
-    res.writeHead(200, {
-      'Content-Type': MIME[ext] || 'application/octet-stream',
+    const stat = await fs.stat(filePath);
+    const contentType = MIME[ext] || 'application/octet-stream';
+    const baseHeaders = {
+      'Content-Type': contentType,
       'Cache-Control': cacheControlFor(urlPath),
       'Service-Worker-Allowed': '/',
-    });
-    res.end(body);
+      'Accept-Ranges': 'bytes',
+    };
+
+    // Modelo de IA e o runtime wasm passam de 10MB -- sem streaming + Range, uma queda de rede no
+    // celular (o cenário que essa prévia mobile existe pra cobrir) obriga a pessoa a baixar tudo de
+    // novo do zero. Os demais arquivos (bem menores) seguem lidos inteiros, mais simples.
+    const range = req.headers.range ? parseRange(req.headers.range, stat.size) : null;
+    if (range) {
+      res.writeHead(206, { ...baseHeaders, 'Content-Length': range.end - range.start + 1, 'Content-Range': `bytes ${range.start}-${range.end}/${stat.size}` });
+      createReadStream(filePath, { start: range.start, end: range.end }).pipe(res);
+      return;
+    }
+    res.writeHead(200, { ...baseHeaders, 'Content-Length': stat.size });
+    createReadStream(filePath).pipe(res);
   } catch (err) {
     res.writeHead(500);
     res.end('Erro interno');

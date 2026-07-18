@@ -2,3 +2,6 @@ node_modules/
 dist/
 .env
 tsconfig.tsbuildinfo
+# Passa dos 100MB do limite do GitHub -- hospedado à parte em downloads.terepersonalizados.com.br,
+# igual ao ia-local.zip do desktop. Ver VITE_BG_MODEL_URL em .env.production.
+public/models/

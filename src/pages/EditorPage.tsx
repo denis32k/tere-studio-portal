@@ -1,14 +1,17 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft, Brush, Download, Eraser, FlipHorizontal, Image as ImageIcon, Layers2, Loader2,
-  QrCode, Send, Sparkles, Trash2, Type, Upload, X, ZoomIn, ZoomOut,
+  Music, QrCode, Send, Sparkles, Trash2, Type, Upload, Wand2, X, ZoomIn, ZoomOut,
 } from 'lucide-react';
 import { Screen } from '../components/ui';
 import { IconButton, ToolBlock, RangeField, FormModal, SymbolsModal, watermarkAssetPadrao } from '../editor/ui';
 import { FrenteCanvas } from '../editor/FrenteCanvas';
 import { VersoCanvas } from '../editor/VersoCanvas';
+import { fonteFamilia } from '../editor/VersoCanvas';
 import { corNome, modoVersoPadrao } from '../editor/normalize';
 import { gerarPreviewCanvas, compartilharOuBaixarPreview, canvasToBlob, nomeArquivoPreview } from '../editor/preview';
+import { gerarSpotifyCodePortal } from '../editor/spotify';
+import { removerFundoClientSide } from '../editor/bgRemoval';
 import { clamp, projetoTransformPadrao, uid, type PaintStroke, type PhotoTransform, type Produto, type ProductMockup, type VersoElemento, type VersoModoGravacao } from '../editor/types';
 import type { ClienteResumo } from '../lib/api';
 
@@ -54,7 +57,9 @@ function useViewportWidth() {
   return w;
 }
 
-export default function EditorPage({ produto, mockup, cliente, onVoltar }: { produto: Produto; mockup: ProductMockup; cliente: ClienteResumo | null; onVoltar: () => void }) {
+type FonteAtiva = { value: string; label: string; idx: number };
+
+export default function EditorPage({ produto, mockup, cliente, fontesAtivas, onVoltar }: { produto: Produto; mockup: ProductMockup; cliente: ClienteResumo | null; fontesAtivas: FonteAtiva[]; onVoltar: () => void }) {
   const [aba, setAba] = useState<'frente' | 'verso'>('frente');
   const [frenteImagem, setFrenteImagem] = useState<string | undefined>();
   const [frenteTransform, setFrenteTransform] = useState<PhotoTransform>(() => projetoTransformPadrao());
@@ -73,11 +78,17 @@ export default function EditorPage({ produto, mockup, cliente, onVoltar }: { pro
   const [symbolsOpen, setSymbolsOpen] = useState(false);
   const [textModalOpen, setTextModalOpen] = useState(false);
   const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [spotifyModalOpen, setSpotifyModalOpen] = useState(false);
+  const [spotifyLink, setSpotifyLink] = useState('');
+  const [spotifyGerando, setSpotifyGerando] = useState(false);
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [gerandoPreview, setGerandoPreview] = useState<'compartilhar' | 'baixar' | null>(null);
   const [resultadoMsg, setResultadoMsg] = useState('');
   const [textoVerso, setTextoVerso] = useState('');
+  const [textoFonte, setTextoFonte] = useState(() => fontesAtivas[0]?.value || 'Letra 1');
   const [qrConteudo, setQrConteudo] = useState('');
+  const [removendoFundo, setRemovendoFundo] = useState(false);
+  const [progressoFundo, setProgressoFundo] = useState<number | null>(null);
   const frenteInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => { if (msg) { const t = setTimeout(() => setMsg(''), 3200); return () => clearTimeout(t); } }, [msg]);
@@ -98,14 +109,48 @@ export default function EditorPage({ produto, mockup, cliente, onVoltar }: { pro
     try { if (frenteInputRef.current) frenteInputRef.current.value = ''; } catch {}
   };
 
+  const removerFundo = async () => {
+    if (!frenteImagem || removendoFundo) return;
+    setRemovendoFundo(true);
+    setProgressoFundo(null);
+    try {
+      const resultado = await removerFundoClientSide(frenteImagem, p => setProgressoFundo(p.total ? p.pct : null));
+      setFrenteImagem(resultado);
+      setMsg('Fundo removido.');
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : 'Não consegui remover o fundo agora.');
+    } finally {
+      setRemovendoFundo(false);
+      setProgressoFundo(null);
+    }
+  };
+
   const addTexto = () => {
     const texto = textoVerso.trim();
     if (!texto) { setMsg('Digite o texto do verso.'); return; }
-    const el: VersoElemento = { id: uid('txt'), tipo: 'texto', conteudo: texto, fonte: 'Letra 1', x: 0, y: 0, escala: 1, rotacao: 0, lineHeight: 1.1, letterSpacing: 0, align: 'center' };
+    const el: VersoElemento = { id: uid('txt'), tipo: 'texto', conteudo: texto, fonte: textoFonte, x: 0, y: 0, escala: 1, rotacao: 0, lineHeight: 1.1, letterSpacing: 0, align: 'center' };
     setVersoElementos(prev => [...prev, el]);
     setSelected(el.id);
     setTextoVerso('');
     setTextModalOpen(false);
+  };
+  const addSpotify = async () => {
+    const link = spotifyLink.trim();
+    if (!link) { setMsg('Cole o link da música do Spotify.'); return; }
+    setSpotifyGerando(true);
+    try {
+      const spotify = await gerarSpotifyCodePortal(link);
+      const conteudo = [spotify.title, spotify.artist].filter(Boolean).join(' — ') || 'Spotify Code';
+      const el: VersoElemento = { id: uid('spotify'), tipo: 'spotify', conteudo, x: 0, y: 0, escala: 1, rotacao: 0, lineHeight: 1, letterSpacing: 0, align: 'center', meta: { musica: spotify.title, artista: spotify.artist, spotifyUrl: spotify.spotifyUrl, imagem: spotify.imageDataUrl } };
+      setVersoElementos(prev => [...prev, el]);
+      setSelected(el.id);
+      setSpotifyLink('');
+      setSpotifyModalOpen(false);
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : 'Não consegui gerar o Spotify Code.');
+    } finally {
+      setSpotifyGerando(false);
+    }
   };
   const addQr = () => {
     const valor = qrConteudo.trim();
@@ -163,10 +208,22 @@ export default function EditorPage({ produto, mockup, cliente, onVoltar }: { pro
     <Screen>
       <SymbolsModal open={symbolsOpen} onClose={() => setSymbolsOpen(false)} onPick={addSimbolo} />
       <FormModal open={textModalOpen} title="Adicionar texto" description="Digite o texto que vai no verso." onCancel={() => setTextModalOpen(false)} onConfirm={addTexto} confirmDisabled={!textoVerso.trim()}>
-        <textarea value={textoVerso} onChange={e => setTextoVerso(e.target.value)} rows={4} autoFocus className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-lg outline-none focus:border-[#06111F] resize-none" placeholder="Digite o texto" />
+        <textarea value={textoVerso} onChange={e => setTextoVerso(e.target.value)} rows={4} autoFocus className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-lg outline-none focus:border-[#06111F] resize-none" style={{ fontFamily: fonteFamilia(textoFonte) }} placeholder="Digite o texto" />
+        {fontesAtivas.length > 1 && (
+          <div className="grid grid-cols-3 gap-2 mt-3">
+            {fontesAtivas.map(f => (
+              <button key={f.value} type="button" onClick={() => setTextoFonte(f.value)} className={`h-12 rounded-xl border text-base truncate px-2 transition ${textoFonte === f.value ? 'border-[#06111F] bg-[#06111F] text-white' : 'border-border bg-background'}`} style={{ fontFamily: fonteFamilia(f.value) }}>
+                {f.label}
+              </button>
+            ))}
+          </div>
+        )}
       </FormModal>
       <FormModal open={qrModalOpen} title="Adicionar QR Code" description="Cole o link. O QR Code é gerado na hora." onCancel={() => setQrModalOpen(false)} onConfirm={addQr} confirmDisabled={!qrConteudo.trim()}>
         <input value={qrConteudo} onChange={e => setQrConteudo(e.target.value)} className="w-full h-12 rounded-2xl border border-border bg-background px-3 text-sm outline-none focus:border-[#06111F]" placeholder="https://..." />
+      </FormModal>
+      <FormModal open={spotifyModalOpen} title="Adicionar Spotify" description="Cole o link da música. O Spotify Code é gerado de verdade, em preto, com fundo transparente." onCancel={() => !spotifyGerando && setSpotifyModalOpen(false)} onConfirm={addSpotify} confirmLabel={spotifyGerando ? 'Gerando...' : 'Adicionar'} confirmDisabled={!spotifyLink.trim() || spotifyGerando}>
+        <input value={spotifyLink} onChange={e => setSpotifyLink(e.target.value)} className="w-full h-12 rounded-2xl border border-border bg-background px-3 text-sm outline-none focus:border-[#06111F]" placeholder="https://open.spotify.com/track/..." />
       </FormModal>
 
       {previewModalOpen && (
@@ -178,16 +235,15 @@ export default function EditorPage({ produto, mockup, cliente, onVoltar }: { pro
             </div>
             <div className="p-5 space-y-3">
               {resultadoMsg && <p className="rounded-xl bg-[#F7F3EB] border border-[#EAC783]/60 text-[#6B5A32] text-xs px-3 py-2.5">{resultadoMsg}</p>}
-              <button type="button" onClick={() => gerar('compartilhar', true)} disabled={Boolean(gerandoPreview)} className="h-14 w-full rounded-2xl bg-[#25D366] text-white text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-60">
-                {gerandoPreview === 'compartilhar' ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                {compartilhamentoDisponivel ? 'Enviar pelo WhatsApp' : 'Baixar prévia'}
-              </button>
-              <button type="button" onClick={() => gerar('baixar', true)} disabled={Boolean(gerandoPreview)} className="h-12 w-full rounded-2xl border border-border bg-background text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-60">
+              {compartilhamentoDisponivel && (
+                <button type="button" onClick={() => gerar('compartilhar', false)} disabled={Boolean(gerandoPreview)} className="h-14 w-full rounded-2xl bg-[#25D366] text-white text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-60">
+                  {gerandoPreview === 'compartilhar' ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                  Enviar pelo WhatsApp
+                </button>
+              )}
+              <button type="button" onClick={() => gerar('baixar', false)} disabled={Boolean(gerandoPreview)} className={`h-12 w-full rounded-2xl text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-60 ${compartilhamentoDisponivel ? 'border border-border bg-background' : 'bg-[#06111F] text-white h-14'}`}>
                 {gerandoPreview === 'baixar' ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
-                Baixar com marca d'água
-              </button>
-              <button type="button" onClick={() => gerar('baixar', false)} disabled={Boolean(gerandoPreview)} className="h-11 w-full rounded-2xl text-xs font-semibold text-muted-foreground disabled:opacity-60">
-                Baixar sem marca d'água
+                Baixar prévia
               </button>
             </div>
           </div>
@@ -245,11 +301,15 @@ export default function EditorPage({ produto, mockup, cliente, onVoltar }: { pro
                   <Upload size={16} />Enviar foto
                 </button>
               ) : (
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-5 gap-2">
                   <IconButton onClick={() => frenteInputRef.current?.click()}><ImageIcon size={16} /></IconButton>
                   <IconButton onClick={() => setFrenteTransform(t => ({ ...t, rotation: (t.rotation + 90) % 360 }))}>90°</IconButton>
                   <IconButton onClick={() => setFrenteTransform(t => ({ ...t, flipH: !t.flipH }))}><FlipHorizontal size={16} /></IconButton>
                   <IconButton active={Boolean(retoqueFrenteModo)} onClick={() => setRetoqueFrenteModo(m => (m ? null : 'erase'))}><Eraser size={16} /></IconButton>
+                  <IconButton disabled={removendoFundo} onClick={removerFundo}>
+                    {removendoFundo ? <Loader2 size={16} className="animate-spin" /> : <Wand2 size={16} />}
+                    {removendoFundo && progressoFundo != null && <span>{progressoFundo}%</span>}
+                  </IconButton>
                 </div>
               )}
               {retoqueFrenteModo && (
@@ -269,10 +329,11 @@ export default function EditorPage({ produto, mockup, cliente, onVoltar }: { pro
                 <IconButton active={versoModoGravacao === 'preta'} onClick={() => setVersoModoGravacao('preta')}>Gravação preta</IconButton>
                 <IconButton active={versoModoGravacao === 'remover_tinta'} onClick={() => setVersoModoGravacao('remover_tinta')}>Remover tinta</IconButton>
               </div>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-4 gap-2">
                 <IconButton onClick={() => setTextModalOpen(true)} className="flex-col h-16"><Type size={18} /><span className="mt-1">Texto</span></IconButton>
                 <IconButton onClick={() => setSymbolsOpen(true)} className="flex-col h-16"><Sparkles size={18} /><span className="mt-1">Símbolo</span></IconButton>
                 <IconButton onClick={() => setQrModalOpen(true)} className="flex-col h-16"><QrCode size={18} /><span className="mt-1">QR Code</span></IconButton>
+                <IconButton onClick={() => setSpotifyModalOpen(true)} className="flex-col h-16"><Music size={18} /><span className="mt-1">Spotify</span></IconButton>
               </div>
               {selectedVerso && (
                 <ToolBlock title={selectedVerso.tipo === 'texto' ? 'Texto selecionado' : 'Camada selecionada'}>

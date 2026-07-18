@@ -66,4 +66,14 @@ export function portalCatalogGet() {
   return request<{ ok: true; catalog: { produtos: unknown[]; mockups: unknown[]; updatedAt: string } }>('/portal/catalog', { method: 'GET', auth: true });
 }
 
+export type SpotifyResolvedItem = { type: string; id: string; uri: string; url: string; title: string; artist: string; thumbnailUrl?: string };
+export function portalSpotifyResolve(link: string) {
+  return request<{ ok: true; item: SpotifyResolvedItem; imageProxyUrl: string }>('/portal/spotify/resolve', { body: { url: link }, auth: true });
+}
+
+export type FonteVersoConfig = { idx: number; nome: string; ativaTotem: boolean; ativaPersonalizar: boolean; familia?: string };
+export function portalFontsGet() {
+  return request<{ ok: true; fonts: { config: FonteVersoConfig[]; arquivos: Record<string, string> } }>('/portal/fonts', { method: 'GET', auth: true });
+}
+
 export { API_BASE };

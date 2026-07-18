@@ -2,14 +2,15 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Maximize2, RotateCcw, Trash2 } from 'lucide-react';
 import { clamp, type Produto, type ProductMockup, type VersoElemento, type VersoModoGravacao } from './types';
 import { imagemMockupLado, corVersoModo } from './normalize';
-import { QRCodePreview, ProdutoFallback } from './ui';
+import { QRCodePreview, ProdutoFallback, SpotifyCodeVisual } from './ui';
 
-function fonteFamilia(nome?: string) {
-  const idx = Math.min(4, Math.max(1, Number(String(nome || '').match(/\d+/)?.[0] || 1)));
+export function fonteFamilia(nome?: string) {
+  const idx = Math.min(9, Math.max(1, Number(String(nome || '').match(/\d+/)?.[0] || 1)));
   return `TereLetra${idx}, Cormorant Garamond, Georgia, serif`;
 }
 export function elementoBox(el: VersoElemento) {
   if (el.tipo === 'qrcode') return { w: 58, h: 58 };
+  if (el.tipo === 'spotify') return { w: 126, h: 30 };
   if (el.tipo === 'simbolo') return { w: 46, h: 46 };
   const lines = String(el.conteudo || 'Texto').split(/\n/);
   const maxLen = Math.max(4, ...lines.map(l => l.length));
@@ -69,6 +70,7 @@ export function VersoCanvas({ produto, mockup, elementos, selectedId, onSelect, 
       return <textarea autoFocus value={el.conteudo} onChange={e => updateEl(el.id, { conteudo: e.target.value })} onBlur={() => setEditingId(null)} className="bg-white/95 border border-[#C8A96E] rounded px-2 py-1 text-sm outline-none resize-none" style={{ width: elementoBox(el).w + 24, minHeight: 42, fontFamily: fonteFamilia(el.fonte), lineHeight: el.lineHeight || 1.1, letterSpacing: `${el.letterSpacing || 0}px`, textAlign: el.align || 'center' }} />;
     }
     if (el.tipo === 'qrcode') return <QRCodePreview seed={el.meta?.qrUrl || el.conteudo} color={engravingColor} pixelSize={58} />;
+    if (el.tipo === 'spotify') return <SpotifyCodeVisual color={engravingColor} imageSrc={el.meta?.imagem} />;
     if (el.tipo === 'simbolo') return <span className="leading-none" style={{ fontSize: 40, color: engravingColor, fontFamily: 'Georgia, serif' }}>{el.conteudo || '♥'}</span>;
     return <span className="whitespace-pre-wrap text-center inline-block" style={{ width: elementoBox(el).w, color: engravingColor, fontFamily: fonteFamilia(el.fonte), lineHeight: el.lineHeight || 1.1, letterSpacing: `${el.letterSpacing || 0}px`, textAlign: el.align || 'center', overflowWrap: 'anywhere' }}>{el.conteudo || 'Texto'}</span>;
   };
@@ -102,4 +104,3 @@ export function VersoCanvas({ produto, mockup, elementos, selectedId, onSelect, 
     </div>
   );
 }
-export { fonteFamilia };

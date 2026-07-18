@@ -106,3 +106,31 @@ export function ProdutoFallback({ tipo, cor, size = 320 }: { tipo?: string; cor?
 export function watermarkAssetPadrao(nomeLoja?: string): PreviewWatermarkAsset {
   return { text: String(nomeLoja || 'PRÉVIA').trim() || 'PRÉVIA' };
 }
+
+function spotifyCodeCorFinalProjeto(color = '#111827') {
+  const cor = String(color || '').trim().toLowerCase().replace(/\s+/g, '');
+  const claro = cor === '#e5e7eb' || cor === '#f3f4f6' || cor === '#ffffff' || cor === 'white' || cor === 'rgb(229,231,235)' || cor === 'rgb(243,244,246)';
+  return claro ? '#E5E7EB' : '#000000';
+}
+function spotifyMaskUrlProjeto(src: string) {
+  return `url("${String(src || '').replace(/"/g, '%22')}")`;
+}
+export function SpotifyCodeVisual({ color = '#111827', imageSrc }: { color?: string; imageSrc?: string }) {
+  const src = String(imageSrc || '').trim();
+  if (!src) return <span className="text-[10px] text-muted-foreground">Spotify Code</span>;
+  const mask = spotifyMaskUrlProjeto(src);
+  return (
+    <span
+      aria-label="Spotify Code"
+      className="block select-none pointer-events-none"
+      style={{
+        width: 126, height: 36, backgroundColor: spotifyCodeCorFinalProjeto(color),
+        WebkitMaskImage: mask, WebkitMaskRepeat: 'no-repeat', WebkitMaskPosition: 'center', WebkitMaskSize: 'contain',
+        maskImage: mask, maskRepeat: 'no-repeat', maskPosition: 'center', maskSize: 'contain',
+      } as React.CSSProperties}
+    />
+  );
+}
+export function spotifyCodeFiltroProjeto(color = '#111827') {
+  return spotifyCodeCorFinalProjeto(color) === '#E5E7EB' ? 'brightness(0) invert(1)' : 'brightness(0)';
+}

@@ -1,6 +1,6 @@
 export type TipoProduto = string;
 export type CorProduto = string;
-export type VersoElementoTipo = 'texto' | 'simbolo' | 'qrcode';
+export type VersoElementoTipo = 'texto' | 'simbolo' | 'qrcode' | 'spotify';
 
 export type Produto = {
   id: string;
@@ -62,7 +62,7 @@ export type VersoElemento = {
   lineHeight?: number;
   letterSpacing?: number;
   align?: 'left' | 'center' | 'right';
-  meta?: { qrUrl?: string };
+  meta?: { qrUrl?: string; musica?: string; artista?: string; spotifyUrl?: string; imagem?: string };
 };
 
 export type VersoModoGravacao = 'preta' | 'remover_tinta';

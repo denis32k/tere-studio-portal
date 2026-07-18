@@ -128,7 +128,7 @@ export function drawPreviewWatermark(ctx: CanvasRenderingContext2D, area: { x: n
 export function drawPreviewFooterBrand(ctx: CanvasRenderingContext2D, xCenter: number, yTop: number, maxWidth: number, asset: PreviewWatermarkAsset, logoImg?: HTMLImageElement | null, mode: 'single' | 'double' = 'single') {
   ctx.save();
   const lineHalf = mode === 'double' ? Math.min(250, maxWidth * 0.26) : Math.min(190, maxWidth * 0.22);
-  ctx.strokeStyle = 'rgba(148, 163, 184, 0.28)';
+  ctx.strokeStyle = 'rgba(200, 169, 110, 0.35)';
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(xCenter - lineHalf, yTop);
@@ -143,14 +143,14 @@ export function drawPreviewFooterBrand(ctx: CanvasRenderingContext2D, xCenter: n
     ctx.drawImage(logoImg, xCenter - logoW / 2, yTop + 18, logoW, logoH);
     ctx.globalAlpha = 1;
     if (asset.text) {
-      ctx.fillStyle = '#64748B';
+      ctx.fillStyle = '#6B5A32';
       ctx.font = mode === 'double' ? '500 16px Inter, Arial, sans-serif' : '500 14px Inter, Arial, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'top';
       ctx.fillText(asset.text, xCenter, yTop + 28 + logoH);
     }
   } else {
-    ctx.fillStyle = '#475569';
+    ctx.fillStyle = '#6B5A32';
     ctx.font = mode === 'double' ? '600 22px Inter, Arial, sans-serif' : '600 19px Inter, Arial, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
