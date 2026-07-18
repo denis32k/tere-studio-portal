@@ -163,7 +163,12 @@ export function FrenteCanvas({ produto, mockup, photoUrl, transform, retouchStro
                   <rect x="-30" y="-30" width="160" height="160" fill="white" />{imageRetouchNodes}
                 </mask>
               </defs>
-              <g mask={`url(#${maskId})`}><g transform={svgT}><image href={photoUrl} x="0" y="0" width="100" height="100" preserveAspectRatio="xMidYMid slice" style={photoSvgStyle} mask={`url(#${maskId}_imageRetouch)`} /></g></g>
+              {/* O filtro (grayscale/sépia) fica no <g> do transform, não no <image> -- esse
+                  <image> já carrega sua própria mask (retoque manual), e filter+mask no MESMO
+                  elemento SVG é uma combinação com histórico de bugs no Safari/WebKit (o
+                  navegador às vezes ignora o filtro nesse caso, a foto sai sem o efeito de
+                  gravação). Separar em elementos diferentes evita essa combinação. */}
+              <g mask={`url(#${maskId})`}><g transform={svgT} style={photoSvgStyle}><image href={photoUrl} x="0" y="0" width="100" height="100" preserveAspectRatio="xMidYMid slice" mask={`url(#${maskId}_imageRetouch)`} /></g></g>
               {retouchMode && brushPreview && <circle cx={brushPreview.canvasX} cy={brushPreview.canvasY} r={(brushSizePct / 2) * transform.scale} fill={retouchMode === 'erase' ? 'rgba(239,68,68,.18)' : 'rgba(34,197,94,.16)'} stroke={retouchMode === 'erase' ? '#EF4444' : '#22C55E'} strokeWidth="0.6" strokeDasharray="1 1" pointerEvents="none" />}
             </svg>
           ) : !img || !frontMask ? (
