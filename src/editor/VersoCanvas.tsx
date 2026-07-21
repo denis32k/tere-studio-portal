@@ -14,7 +14,11 @@ export function elementoBox(el: VersoElemento) {
   if (el.tipo === 'simbolo') return { w: 46, h: 46 };
   const lines = String(el.conteudo || 'Texto').split(/\n/);
   const maxLen = Math.max(4, ...lines.map(l => l.length));
-  return { w: clamp(maxLen * 8 + 18, 54, 210), h: clamp(lines.length * 20 * (el.lineHeight || 1.1) + 8, 30, 150) };
+  // Achado ao vivo em 20/07/2026: 8px/linha 20px assumiam a fonte antiga (~16px, sem fontSize
+  // explícito) -- com fontSize:28 a caixa calculada ficava estreita demais pro texto de verdade,
+  // e ele quebrava linha sozinho mesmo cabendo perfeitamente numa linha só. Recalibrado pro
+  // tamanho de fonte atual.
+  return { w: clamp(maxLen * 15 + 24, 70, 260), h: clamp(lines.length * 32 * (el.lineHeight || 1.1) + 10, 40, 200) };
 }
 
 export function VersoCanvas({ produto, mockup, elementos, selectedId, onSelect, onChange, modoGravacao = 'preta', size = 310 }: {

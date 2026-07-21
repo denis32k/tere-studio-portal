@@ -13,6 +13,14 @@ import './styles/fonts.css';
 document.addEventListener('gesturestart', e => e.preventDefault());
 document.addEventListener('gesturechange', e => e.preventDefault());
 document.addEventListener('touchmove', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+// Toque duplo (2 toques rápidos no mesmo ponto, ex: tentando acertar um botão pequeno) também é
+// um gesto nativo de zoom que a pinça sozinha não cobria -- mesma ideia, bloqueia globalmente.
+let ultimoToqueEm = 0;
+document.addEventListener('touchend', e => {
+  const agora = Date.now();
+  if (agora - ultimoToqueEm <= 300) e.preventDefault();
+  ultimoToqueEm = agora;
+}, { passive: false });
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
