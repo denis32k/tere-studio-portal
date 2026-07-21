@@ -125,40 +125,6 @@ export function drawPreviewWatermark(ctx: CanvasRenderingContext2D, area: { x: n
   }
   ctx.restore();
 }
-export function drawPreviewFooterBrand(ctx: CanvasRenderingContext2D, xCenter: number, yTop: number, maxWidth: number, asset: PreviewWatermarkAsset, logoImg?: HTMLImageElement | null, mode: 'single' | 'double' = 'single') {
-  ctx.save();
-  const lineHalf = mode === 'double' ? Math.min(250, maxWidth * 0.26) : Math.min(190, maxWidth * 0.22);
-  ctx.strokeStyle = 'rgba(200, 169, 110, 0.35)';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(xCenter - lineHalf, yTop);
-  ctx.lineTo(xCenter + lineHalf, yTop);
-  ctx.stroke();
-  if (logoImg) {
-    const naturalW = Math.max(1, logoImg.naturalWidth || 1);
-    const naturalH = Math.max(1, logoImg.naturalHeight || 1);
-    const logoW = mode === 'double' ? Math.min(195, maxWidth * 0.20) : Math.min(155, maxWidth * 0.17);
-    const logoH = Math.max(mode === 'double' ? 34 : 28, logoW * (naturalH / naturalW));
-    ctx.globalAlpha = 0.92;
-    ctx.drawImage(logoImg, xCenter - logoW / 2, yTop + 18, logoW, logoH);
-    ctx.globalAlpha = 1;
-    if (asset.text) {
-      ctx.fillStyle = '#6B5A32';
-      ctx.font = mode === 'double' ? '500 16px Inter, Arial, sans-serif' : '500 14px Inter, Arial, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'top';
-      ctx.fillText(asset.text, xCenter, yTop + 28 + logoH);
-    }
-  } else {
-    ctx.fillStyle = '#6B5A32';
-    ctx.font = mode === 'double' ? '600 22px Inter, Arial, sans-serif' : '600 19px Inter, Arial, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    ctx.fillText(asset.text || 'Terê Personalizados', xCenter, yTop + 20);
-  }
-  ctx.restore();
-}
-
 export type ImageFitBox = { left: number; top: number; width: number; height: number };
 export function fitImageBox(containerW: number, containerH: number, naturalW = 1, naturalH = 1): ImageFitBox {
   const nw = Math.max(1, naturalW || 1);

@@ -2,7 +2,7 @@ import type { PhotoTransform, Produto, ProductMockup, VersoElemento, VersoModoGr
 import { imagemMockupLado, mascaraMockupLado, corVersoModo } from './normalize';
 import {
   createCanvas, loadImageElement, roundedRectPath, drawRoundedPanel, drawShapeClipBox,
-  drawImageContainBox, fitImageBox, maskBoundsForPreview, drawQrModules, drawPreviewWatermark, drawPreviewFooterBrand,
+  drawImageContainBox, fitImageBox, maskBoundsForPreview, drawQrModules, drawPreviewWatermark,
   converterMascaraParaAlpha, maskImageFromMask, fotoPreviewVisualProps, aplicarEfeitoGravacaoPixels, qrMake, type PreviewWatermarkAsset,
 } from './canvasHelpers';
 import { elementoBox, fonteFamilia } from './VersoCanvas';
@@ -27,12 +27,12 @@ function slugArquivo(value?: string) {
 
 export async function gerarPreviewCanvas(input: GerarPreviewInput): Promise<HTMLCanvasElement> {
   const { produto, mockup, frenteImagem, frenteTransform, mockupFrenteSize, versoElementos, versoModoGravacao, mockupVersoSize, watermarkAsset, comMarcaDagua } = input;
-  const panelWidth = 640;
-  const panelHeight = 760;
-  const pieceSquare = 470;
+  const panelWidth = 680;
+  const pieceSquare = 600;
   const pieceX = Math.round((panelWidth - pieceSquare) / 2);
-  const pieceY = 146;
-  const labelY = 92;
+  const pieceY = 70;
+  const labelY = 40;
+  const panelHeight = pieceY + pieceSquare + 40;
 
   const footerBrandLogo = watermarkAsset.imageSrc ? await loadImageElement(watermarkAsset.imageSrc).catch(() => null) : null;
   const watermarkLogo = comMarcaDagua ? footerBrandLogo : null;
@@ -49,15 +49,15 @@ export async function gerarPreviewCanvas(input: GerarPreviewInput): Promise<HTML
 
   const drawPieceBase = (ctx: CanvasRenderingContext2D, areaLabel: string) => {
     drawRoundedPanel(ctx, 14, 14, panelWidth - 28, panelHeight - 28, 28, '#FFFDF8');
-    ctx.strokeStyle = 'rgba(200,169,110,.25)';
+    ctx.strokeStyle = 'rgba(200,169,110,.28)';
     ctx.lineWidth = 1;
     roundedRectPath(ctx, 14, 14, panelWidth - 28, panelHeight - 28, 28);
     ctx.stroke();
-    ctx.fillStyle = '#06111F';
-    ctx.font = '600 26px Inter, Arial, sans-serif';
+    ctx.fillStyle = '#6B5A32';
+    ctx.font = '600 15px Inter, Arial, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(areaLabel, panelWidth / 2, labelY);
+    ctx.fillText(areaLabel.toUpperCase(), panelWidth / 2, labelY);
   };
 
   const drawTransformedFrontPhoto = (ctx: CanvasRenderingContext2D, target: { x: number; y: number; width: number; height: number }) => {
@@ -217,34 +217,32 @@ export async function gerarPreviewCanvas(input: GerarPreviewInput): Promise<HTML
   const frontCanvas = await renderFrontPanel();
   const versoCanvas = hasVerso ? await renderVersoPanel() : null;
 
-  const finalWidth = versoCanvas ? 1540 : 900;
-  const finalHeight = versoCanvas ? 1020 : 1120;
+  const gap = 36;
+  const sideMargin = 70;
+  const topMargin = 54;
+  const footerHeight = 100;
+  const finalWidth = versoCanvas ? sideMargin * 2 + panelWidth * 2 + gap : sideMargin * 2 + panelWidth;
+  const finalHeight = topMargin + panelHeight + footerHeight;
   const finalCanvas = createCanvas(finalWidth, finalHeight);
   const fctx = finalCanvas.getContext('2d');
   if (!fctx) throw new Error('Não consegui montar a prévia.');
-  const bg = fctx.createLinearGradient(0, 0, finalWidth, finalHeight);
-  bg.addColorStop(0, '#F7F4EF');
-  bg.addColorStop(1, '#F0E6D2');
+  const bg = fctx.createRadialGradient(finalWidth / 2, -finalHeight * 0.15, finalWidth * 0.2, finalWidth / 2, finalHeight * 0.5, finalWidth * 0.9);
+  bg.addColorStop(0, '#FBF7EE');
+  bg.addColorStop(0.55, '#F3EAD6');
+  bg.addColorStop(1, '#ECDFC0');
   fctx.fillStyle = bg;
   fctx.fillRect(0, 0, finalWidth, finalHeight);
-  fctx.fillStyle = '#06111F';
-  fctx.textAlign = 'center';
-  fctx.textBaseline = 'top';
-  fctx.font = '700 44px Inter, Arial, sans-serif';
-  fctx.fillText('Prévia do projeto', finalWidth / 2, 48);
-  fctx.font = '500 24px Inter, Arial, sans-serif';
-  fctx.fillStyle = '#6B5A32';
-  fctx.fillText(produto.nome || 'Produto personalizado', finalWidth / 2, 104);
-  const startY = 182;
   if (versoCanvas) {
-    fctx.drawImage(frontCanvas, 60, startY, panelWidth, panelHeight);
-    fctx.drawImage(versoCanvas, finalWidth - panelWidth - 60, startY, panelWidth, panelHeight);
+    fctx.drawImage(frontCanvas, sideMargin, topMargin, panelWidth, panelHeight);
+    fctx.drawImage(versoCanvas, finalWidth - panelWidth - sideMargin, topMargin, panelWidth, panelHeight);
   } else {
-    fctx.drawImage(frontCanvas, (finalWidth - panelWidth) / 2, startY, panelWidth, panelHeight);
+    fctx.drawImage(frontCanvas, (finalWidth - panelWidth) / 2, topMargin, panelWidth, panelHeight);
   }
-  const footerMode = versoCanvas ? 'double' : 'single';
-  const footerTop = versoCanvas ? finalHeight - 164 : finalHeight - 124;
-  drawPreviewFooterBrand(fctx, finalWidth / 2, footerTop, finalWidth, watermarkAsset, footerBrandLogo, footerMode);
+  fctx.fillStyle = '#6B5A32';
+  fctx.textAlign = 'center';
+  fctx.textBaseline = 'middle';
+  fctx.font = '600 30px Inter, Arial, sans-serif';
+  fctx.fillText(watermarkAsset.text || 'Terê Personalizados', finalWidth / 2, topMargin + panelHeight + footerHeight / 2);
 
   return finalCanvas;
 }
