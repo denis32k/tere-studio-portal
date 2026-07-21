@@ -28,6 +28,11 @@ html, body, #root {
   width: 100%;
   min-height: 100%;
   margin: 0;
+  /* Trava a largura mesmo se algum filho (ex: canvas do editor com zoom) crescer além da tela --
+     sem isso, um elemento com largura fixa em px maior que o viewport empurra a largura de toda a
+     cadeia flex até a página, e o navegador mobile responde "encolhendo" tudo pra caber, que
+     parece um zoom acontecendo na tela inteira em vez de só no elemento que cresceu. */
+  overflow-x: hidden;
 }
 
 body {

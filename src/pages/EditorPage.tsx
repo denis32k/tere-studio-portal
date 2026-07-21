@@ -274,12 +274,12 @@ export default function EditorPage({
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+      <div className="flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden">
         <div className="flex-shrink-0 flex items-center justify-end gap-2 px-4 pt-3">
           <IconButton compact onClick={() => setZoom(z => clamp(z / 1.12, 0.75, 2))}><ZoomOut size={16} /></IconButton>
           <IconButton compact onClick={() => setZoom(z => clamp(z * 1.12, 0.75, 2))}><ZoomIn size={16} /></IconButton>
         </div>
-        <div className="flex-1 min-h-0 flex items-center justify-center px-4 py-3 overflow-auto">
+        <div className="flex-1 min-h-0 min-w-0 flex items-center justify-center px-4 py-3 overflow-auto">
           {aba === 'frente' ? (
             <FrenteCanvas
               produto={produto} mockup={mockup} photoUrl={frenteImagem} transform={frenteTransform}

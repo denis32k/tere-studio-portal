@@ -2,7 +2,7 @@ import React from 'react';
 
 export function Screen({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen-safe w-full flex flex-col safe-top safe-bottom bg-background">
+    <div className="min-h-screen-safe w-full min-w-0 flex flex-col safe-top safe-bottom bg-background">
       {children}
     </div>
   );
