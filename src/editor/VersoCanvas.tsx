@@ -87,7 +87,10 @@ export function VersoCanvas({ produto, mockup, elementos, selectedId, onSelect, 
     if (el.tipo === 'qrcode') return <QRCodePreview seed={el.meta?.qrUrl || el.conteudo} color={engravingColor} pixelSize={58} />;
     if (el.tipo === 'spotify') return <SpotifyCodeVisual color={engravingColor} imageSrc={el.meta?.imagem} />;
     if (el.tipo === 'simbolo') return <span className="leading-none" style={{ fontSize: 40, color: engravingColor, fontFamily: 'Georgia, serif' }}>{el.conteudo || '♥'}</span>;
-    return <span className="whitespace-pre-wrap text-center inline-block" style={{ width: elementoBox(el).w, color: engravingColor, fontFamily: fonteFamilia(el.fonte), lineHeight: el.lineHeight || 1.1, letterSpacing: `${el.letterSpacing || 0}px`, textAlign: el.align || 'center', overflowWrap: 'anywhere' }}>{el.conteudo || 'Texto'}</span>;
+    {/* Achado ao vivo em 20/07/2026: texto não tinha fontSize nenhum (herdava o padrão do navegador,
+        ~16px) -- minúsculo perto do produto físico. Símbolo já usa 40px explícito; texto usa um
+        pouco menos já que costuma ter mais caracteres. */}
+    return <span className="whitespace-pre-wrap text-center inline-block" style={{ width: elementoBox(el).w, color: engravingColor, fontFamily: fonteFamilia(el.fonte), fontSize: 28, lineHeight: el.lineHeight || 1.1, letterSpacing: `${el.letterSpacing || 0}px`, textAlign: el.align || 'center', overflowWrap: 'anywhere' }}>{el.conteudo || 'Texto'}</span>;
   };
 
   return (
@@ -117,9 +120,13 @@ export function VersoCanvas({ produto, mockup, elementos, selectedId, onSelect, 
                   {selected && (
                     <>
                       <div className="absolute -inset-1 border-2 border-white rounded pointer-events-none shadow-[0_0_0_1px_rgba(6,17,31,.35)]" />
-                      <button type="button" title="Girar" onPointerDown={e => { e.preventDefault(); e.stopPropagation(); action.current = { id: el.id, startX: e.clientX, startY: e.clientY, escala: el.escala, rotacao: el.rotacao, mode: 'rotate' }; }} className="absolute left-1/2 -top-10 -translate-x-1/2 w-9 h-9 rounded-full bg-[#06111F] text-white ring-2 ring-white flex items-center justify-center shadow-lg shadow-black/25 active:scale-95 transition-transform"><RotateCcw size={14} /></button>
-                      <button type="button" title="Tamanho" onPointerDown={e => { e.preventDefault(); e.stopPropagation(); action.current = { id: el.id, startX: e.clientX, startY: e.clientY, escala: el.escala, rotacao: el.rotacao, mode: 'scale' }; }} className="absolute -right-4 -bottom-4 w-9 h-9 rounded-full bg-[#06111F] text-white ring-2 ring-white flex items-center justify-center shadow-lg shadow-black/25 active:scale-95 transition-transform"><Maximize2 size={14} /></button>
-                      <button type="button" title="Remover" onClick={e => { e.stopPropagation(); removeEl(el.id); }} className="absolute -right-4 -top-4 w-9 h-9 rounded-full bg-red-600 text-white ring-2 ring-white flex items-center justify-center shadow-lg shadow-black/25 active:scale-95 transition-transform"><Trash2 size={14} /></button>
+                      {/* Achado ao vivo em 20/07/2026: os 3 botões flutuantes são filhos da div que já leva
+                          scale(el.escala) -- sem a escala inversa aqui, dar zoom no texto também engordava
+                          os botões até tampar o texto inteiro. Compensa com scale(1/escala) mantendo o
+                          tamanho visual sempre igual, independente do zoom do elemento. */}
+                      <button type="button" title="Girar" onPointerDown={e => { e.preventDefault(); e.stopPropagation(); action.current = { id: el.id, startX: e.clientX, startY: e.clientY, escala: el.escala, rotacao: el.rotacao, mode: 'rotate' }; }} style={{ transform: `translateX(-50%) scale(${1 / Math.max(0.01, el.escala)})` }} className="absolute left-1/2 -top-10 w-9 h-9 rounded-full bg-[#06111F] text-white ring-2 ring-white flex items-center justify-center shadow-lg shadow-black/25 active:scale-95 transition-transform"><RotateCcw size={14} /></button>
+                      <button type="button" title="Tamanho" onPointerDown={e => { e.preventDefault(); e.stopPropagation(); action.current = { id: el.id, startX: e.clientX, startY: e.clientY, escala: el.escala, rotacao: el.rotacao, mode: 'scale' }; }} style={{ transform: `scale(${1 / Math.max(0.01, el.escala)})` }} className="absolute -right-4 -bottom-4 w-9 h-9 rounded-full bg-[#06111F] text-white ring-2 ring-white flex items-center justify-center shadow-lg shadow-black/25 active:scale-95 transition-transform"><Maximize2 size={14} /></button>
+                      <button type="button" title="Remover" onClick={e => { e.stopPropagation(); removeEl(el.id); }} style={{ transform: `scale(${1 / Math.max(0.01, el.escala)})` }} className="absolute -right-4 -top-4 w-9 h-9 rounded-full bg-red-600 text-white ring-2 ring-white flex items-center justify-center shadow-lg shadow-black/25 active:scale-95 transition-transform"><Trash2 size={14} /></button>
                     </>
                   )}
                 </div>
