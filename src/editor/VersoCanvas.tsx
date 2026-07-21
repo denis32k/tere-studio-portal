@@ -97,12 +97,15 @@ export function VersoCanvas({ produto, mockup, elementos, selectedId, onSelect, 
     <div className="h-full min-h-0 flex items-center justify-center" onClick={() => onSelect(null)} style={{ touchAction: 'none' }}>
       <div className="relative select-none" style={{ width: size, height: h }}>
         {imgVerso ? <img src={imgVerso} className="absolute inset-0 w-full h-full object-contain pointer-events-none select-none opacity-95" draggable={false} /> : <div className="absolute inset-0 flex items-center justify-center"><ProdutoFallback tipo={produto?.tipo} cor={produto?.cor} size={size} /></div>}
+        {/* Achado ao vivo em 20/07/2026: fixo no canto (não acompanha zoom/posição do elemento) --
+            só ativo quando algo está selecionado. Tirado de cima do texto por pedido do usuário. */}
+        <button type="button" title="Remover elemento selecionado" disabled={!selectedId} onClick={e => { e.stopPropagation(); if (selectedId) removeEl(selectedId); }} className="absolute top-2 right-2 z-20 w-9 h-9 rounded-full bg-red-600 text-white ring-2 ring-white flex items-center justify-center shadow-lg shadow-black/25 active:scale-95 transition-all disabled:opacity-0 disabled:pointer-events-none"><Trash2 size={14} /></button>
         <div className="absolute inset-0 overflow-visible">
           {elementos.map((el, idx) => {
             const selected = selectedId === el.id;
             const box = elementoBox(el);
             return (
-              <div key={el.id} className="absolute left-1/2 top-1/2" style={{ zIndex: idx + 1, transform: `translate(-50%, -50%) translate(${el.x}px, ${el.y}px) rotate(${el.rotacao}deg) scale(${el.escala})`, transformOrigin: 'center' }} onClick={e => { e.stopPropagation(); onSelect(el.id); }} onDoubleClick={e => { e.stopPropagation(); onSelect(el.id); if (el.tipo === 'texto') setEditingId(el.id); }} onPointerDown={e => {
+              <div key={el.id} className="absolute left-1/2 top-1/2 flex items-center justify-center" style={{ zIndex: idx + 1, minWidth: 64, minHeight: 64, transform: `translate(-50%, -50%) translate(${el.x}px, ${el.y}px) rotate(${el.rotacao}deg) scale(${el.escala})`, transformOrigin: 'center' }} onClick={e => { e.stopPropagation(); onSelect(el.id); }} onDoubleClick={e => { e.stopPropagation(); onSelect(el.id); if (el.tipo === 'texto') setEditingId(el.id); }} onPointerDown={e => {
                   e.stopPropagation();
                   if ((e.target as HTMLElement).tagName.toLowerCase() === 'textarea') return;
                   onSelect(el.id);
@@ -120,13 +123,15 @@ export function VersoCanvas({ produto, mockup, elementos, selectedId, onSelect, 
                   {selected && (
                     <>
                       <div className="absolute -inset-1 border-2 border-white rounded pointer-events-none shadow-[0_0_0_1px_rgba(6,17,31,.35)]" />
-                      {/* Achado ao vivo em 20/07/2026: os 3 botões flutuantes são filhos da div que já leva
+                      {/* Achado ao vivo em 20/07/2026: os botões flutuantes são filhos da div que já leva
                           scale(el.escala) -- sem a escala inversa aqui, dar zoom no texto também engordava
                           os botões até tampar o texto inteiro. Compensa com scale(1/escala) mantendo o
-                          tamanho visual sempre igual, independente do zoom do elemento. */}
+                          tamanho visual sempre igual, independente do zoom do elemento. "Remover" saiu
+                          daqui e virou um ícone fixo no canto do mockup, por pedido do usuário -- fica só
+                          Girar (mantido) e Tamanho (mantido por enquanto, até confirmar que o pinça com
+                          os dedos funciona bem no celular real; aí dá pra tirar também). */}
                       <button type="button" title="Girar" onPointerDown={e => { e.preventDefault(); e.stopPropagation(); action.current = { id: el.id, startX: e.clientX, startY: e.clientY, escala: el.escala, rotacao: el.rotacao, mode: 'rotate' }; }} style={{ transform: `translateX(-50%) scale(${1 / Math.max(0.01, el.escala)})` }} className="absolute left-1/2 -top-10 w-9 h-9 rounded-full bg-[#06111F] text-white ring-2 ring-white flex items-center justify-center shadow-lg shadow-black/25 active:scale-95 transition-transform"><RotateCcw size={14} /></button>
                       <button type="button" title="Tamanho" onPointerDown={e => { e.preventDefault(); e.stopPropagation(); action.current = { id: el.id, startX: e.clientX, startY: e.clientY, escala: el.escala, rotacao: el.rotacao, mode: 'scale' }; }} style={{ transform: `scale(${1 / Math.max(0.01, el.escala)})` }} className="absolute -right-4 -bottom-4 w-9 h-9 rounded-full bg-[#06111F] text-white ring-2 ring-white flex items-center justify-center shadow-lg shadow-black/25 active:scale-95 transition-transform"><Maximize2 size={14} /></button>
-                      <button type="button" title="Remover" onClick={e => { e.stopPropagation(); removeEl(el.id); }} style={{ transform: `scale(${1 / Math.max(0.01, el.escala)})` }} className="absolute -right-4 -top-4 w-9 h-9 rounded-full bg-red-600 text-white ring-2 ring-white flex items-center justify-center shadow-lg shadow-black/25 active:scale-95 transition-transform"><Trash2 size={14} /></button>
                     </>
                   )}
                 </div>
